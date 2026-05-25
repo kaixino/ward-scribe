@@ -1,0 +1,355 @@
+/* ============================================
+   Recording Panel
+   ============================================ */
+
+.recording-panel {
+  max-width: 720px;
+  margin: 0 auto;
+  animation: fadeIn 0.3s ease;
+}
+
+/* ---- Speech Error Banner ---- */
+.speech-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  margin-bottom: 16px;
+  animation: fadeIn 0.3s ease;
+}
+
+.speech-error-close {
+  margin-left: auto;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--color-danger);
+  opacity: 0.6;
+  transition: opacity var(--transition);
+}
+
+.speech-error-close:hover {
+  opacity: 1;
+}
+
+.recording-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+
+.patient-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.patient-context h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bed-tag-sm {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  transition: all var(--transition);
+}
+
+.btn-outline:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+/* ---- Waveform ---- */
+.waveform-container {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-xl);
+  padding: 40px 32px 24px;
+  text-align: center;
+  margin-bottom: 24px;
+  transition: all var(--transition);
+}
+
+.waveform-container.active {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+.waveform-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 70px;
+  margin-bottom: 20px;
+}
+
+.waveform-bar {
+  width: 4px;
+  border-radius: 2px;
+  background: var(--color-border);
+  transition: height 0.2s ease, background 0.3s ease;
+}
+
+.waveform-bar.animate {
+  background: var(--color-primary);
+  animation: wave 1.2s ease-in-out infinite;
+}
+
+.waveform-container.active .waveform-bar.animate {
+  background: var(--color-primary);
+}
+
+@keyframes wave {
+  0%, 100% {
+    height: 4px;
+  }
+  50% {
+    height: 50px;
+  }
+}
+
+.waveform-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.recording-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-danger);
+  font-weight: 500;
+}
+
+.rec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.processing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.idle-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---- Recording Button ---- */
+.recording-controls {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 28px;
+}
+
+.btn-record {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  box-shadow: 0 4px 16px rgba(58, 125, 92, 0.3);
+  transition: all var(--transition);
+}
+
+.btn-record:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 24px rgba(58, 125, 92, 0.4);
+}
+
+.btn-record:active {
+  transform: scale(0.95);
+}
+
+.btn-record.recording {
+  background: var(--color-danger);
+  box-shadow: 0 4px 16px rgba(201, 112, 101, 0.3);
+  animation: recPulse 1.5s ease-in-out infinite;
+}
+
+.btn-record.recording:hover {
+  box-shadow: 0 6px 24px rgba(201, 112, 101, 0.4);
+}
+
+.btn-record:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---- Demo Button ---- */
+.btn-demo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  margin-left: 16px;
+  transition: all var(--transition);
+}
+
+.btn-demo:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+@keyframes recPulse {
+  0%, 100% { box-shadow: 0 4px 16px rgba(201, 112, 101, 0.3); }
+  50% { box-shadow: 0 4px 32px rgba(201, 112, 101, 0.5); }
+}
+
+/* ---- Transcript Area ---- */
+.transcript-area {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.transcript-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 10px;
+}
+
+.transcript-input {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--color-text);
+  background: var(--color-bg);
+  resize: vertical;
+  min-height: 120px;
+  transition: border-color var(--transition);
+}
+
+.transcript-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.transcript-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.transcript-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+
+.char-count {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: var(--color-primary);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all var(--transition);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.shortcut-hint {
+  margin-top: 8px;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+.shortcut-hint kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-family: inherit;
+}
+
+.combined-shortcut {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}

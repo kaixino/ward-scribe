@@ -1,0 +1,242 @@
+/* ============================================
+   Report Card — Handover & Progress Note
+   ============================================ */
+
+.report-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow var(--transition);
+}
+
+.report-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* ---- Variants ---- */
+.card-handover {
+  border-left: 4px solid var(--color-accent-amber);
+}
+
+.card-progress {
+  border-left: 4px solid var(--color-secondary);
+}
+
+/* ---- Header ---- */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text);
+}
+
+.card-handover .card-title-group {
+  color: #8b7a3e;
+}
+
+.card-progress .card-title-group {
+  color: var(--color-secondary);
+}
+
+.card-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.card-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-card-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  transition: all var(--transition);
+}
+
+.btn-card-action:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.btn-delete:hover {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+/* ---- Recorded By ---- */
+.card-recorded-by {
+  padding: 6px 20px;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.card-recorded-by strong {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+/* ---- Content ---- */
+.card-content {
+  padding: 20px;
+  flex: 1;
+}
+
+.card-text {
+  font-family: inherit;
+  font-size: 0.85rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: var(--color-text);
+}
+
+/* ---- Edit Mode ---- */
+.card-edit {
+  padding: 16px 20px;
+}
+
+.card-textarea {
+  width: 100%;
+  min-height: 250px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  line-height: 1.65;
+  color: var(--color-text);
+  background: var(--color-bg);
+  resize: vertical;
+}
+
+.card-textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.card-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all var(--transition);
+}
+
+.btn-secondary:hover {
+  background: var(--color-border);
+}
+
+.btn-primary.small {
+  padding: 8px 16px;
+  font-size: 0.8rem;
+}
+
+/* ---- Saved Banner ---- */
+.saved-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  font-size: 0.78rem;
+  font-weight: 500;
+  border-top: 1px solid var(--color-border-light);
+  animation: fadeIn 0.3s ease;
+}
+
+/* ---- History Panel ---- */
+.history-panel {
+  border-top: 1px solid var(--color-border-light);
+  background: var(--color-bg);
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.history-header h4 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.history-empty {
+  padding: 20px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.history-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.history-item {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.history-meta strong {
+  color: var(--color-text-secondary);
+}
+
+.history-preview {
+  font-family: inherit;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: var(--color-text-muted);
+  max-height: 60px;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}

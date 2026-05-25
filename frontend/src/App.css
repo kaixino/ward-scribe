@@ -1,0 +1,354 @@
+/* ============================================
+   App Layout
+   ============================================ */
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Header ---- */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  transition: background var(--transition);
+}
+
+.btn-icon:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.app-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  color: var(--color-primary);
+}
+
+.app-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+
+.badge-ward {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 14px;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.nurse-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-md);
+}
+
+.nurse-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-secondary);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.nurse-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.nurse-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.nurse-role {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+/* ---- Main ---- */
+.app-main {
+  flex: 1;
+  padding: 24px;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.app-main--full {
+  max-width: none;
+  padding: 0;
+}
+
+/* ---- Review Layout ---- */
+.review-container {
+  animation: fadeIn 0.3s ease;
+}
+
+.review-header {
+  margin-bottom: 24px;
+}
+
+.review-header h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bed-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.review-meta {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+/* ---- Nurse Attribution Bar ---- */
+.review-nurse-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+}
+
+.review-nurse-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-text-secondary);
+}
+
+.review-nurse-item strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.review-nurse-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  margin-left: 4px;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.review-nurse-sep {
+  color: var(--color-border);
+}
+
+.combined-btn {
+  margin-top: 12px;
+  width: 100%;
+  justify-content: center;
+}
+
+/* ---- Timeline Report View ---- */
+.report-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.timeline-box {
+  display: flex;
+  gap: 16px;
+  padding: 0;
+  margin-bottom: 8px;
+  animation: fadeIn 0.3s ease;
+}
+
+.timeline-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 20px;
+  flex-shrink: 0;
+  padding-top: 20px;
+}
+
+.timeline-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-border);
+  border: 2px solid var(--color-surface);
+  flex-shrink: 0;
+}
+
+.timeline-latest .timeline-dot {
+  background: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.timeline-yours .timeline-dot {
+  background: var(--color-primary);
+}
+
+.timeline-line {
+  width: 2px;
+  flex: 1;
+  background: var(--color-border-light);
+  min-height: 20px;
+  margin-top: 4px;
+}
+
+.timeline-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+}
+
+.timeline-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+
+.timeline-author strong {
+  color: var(--color-text);
+}
+
+.timeline-role {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  padding: 1px 6px;
+  background: var(--color-surface-hover);
+  border-radius: 6px;
+}
+
+.timeline-latest-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  background: var(--color-primary);
+  color: white;
+  border-radius: 8px;
+  margin-left: 4px;
+}
+
+.timeline-time {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.timeline-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 800px) {
+  .timeline-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.review-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 900px) {
+  .review-cards {
+    grid-template-columns: 1fr;
+  }
+  .app-header {
+    padding: 10px 16px;
+  }
+  .app-main {
+    padding: 16px;
+  }
+  .nurse-info {
+    display: none;
+  }
+}
+
+/* ---- Animations ---- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

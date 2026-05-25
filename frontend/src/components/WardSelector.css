@@ -1,0 +1,101 @@
+/* ============================================
+   Ward Selector
+   ============================================ */
+
+.ward-selector {
+  max-width: 640px;
+  margin: 40px auto;
+  animation: fadeIn 0.3s ease;
+}
+
+.ward-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  gap: 16px;
+}
+
+.ward-header h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.ward-subtitle {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+/* ---- Ward Grid ---- */
+.ward-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 550px) {
+  .ward-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Ward Card ---- */
+.ward-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 24px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+}
+
+.ward-card:hover {
+  border-color: var(--ward-accent, var(--color-primary));
+  box-shadow: 0 4px 16px rgba(44, 62, 53, 0.08);
+  transform: translateY(-2px);
+}
+
+.ward-card:active {
+  transform: translateY(0);
+}
+
+.ward-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  margin-bottom: 16px;
+}
+
+.ward-card-body h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--color-text);
+}
+
+.ward-card-body p {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.ward-card-arrow {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: var(--color-border);
+  transition: color var(--transition);
+}
+
+.ward-card:hover .ward-card-arrow {
+  color: var(--ward-accent, var(--color-primary));
+}

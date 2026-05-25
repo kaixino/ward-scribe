@@ -1,0 +1,355 @@
+.doctor-panel, .dp-nurse-select {
+  max-width: 720px;
+  margin: 0 auto;
+  animation: fadeIn 0.3s ease;
+}
+
+.dp-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.dp-header h2 { font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+
+.dp-subtitle {
+  font-size: 0.78rem;
+  color: var(--color-secondary);
+  font-weight: 500;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* ---- Nurse Selection Grid ---- */
+.dp-nurse-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.dp-nurse-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.dp-nurse-card:hover {
+  border-color: var(--color-secondary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.dp-nurse-avatar {
+  display: flex;
+  align-items: center; justify-content: center;
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: var(--color-secondary-light);
+  color: var(--color-secondary);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.dp-nurse-card strong { font-size: 0.88rem; color: var(--color-text); }
+
+.dp-nurse-role-tag {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--color-surface-hover);
+  color: var(--color-text-muted);
+}
+
+.dp-empty-text {
+  text-align: center;
+  padding: 24px;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.dp-report-prompt {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 16px;
+}
+
+.dp-report-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dp-report-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.dp-report-card:hover {
+  border-color: var(--color-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.dp-report-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.dp-report-card-top strong {
+  font-size: 0.82rem;
+  color: var(--color-text);
+}
+
+.dp-report-preview {
+  font-family: inherit;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.dp-report-ref {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+/* ---- Panel (after nurse selected) ---- */
+.dp-input-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.dp-input-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-secondary);
+  margin-bottom: 10px;
+}
+
+.dp-mic-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--color-secondary-light); color: var(--color-secondary);
+  transition: all var(--transition);
+}
+
+.dp-mic-btn:hover { background: var(--color-secondary); color: white; }
+.dp-mic-btn.recording { background: var(--color-danger); color: white; animation: recPulse 1.5s infinite; }
+
+.dp-textarea {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--color-text);
+  background: var(--color-bg);
+  resize: vertical;
+  min-height: 80px;
+}
+
+.dp-textarea:focus { outline: none; border-color: var(--color-secondary); box-shadow: 0 0 0 3px var(--color-secondary-light); }
+
+/* ---- Combined Nurse + Doctor view ---- */
+.dp-combined-view { margin-top: 20px; }
+
+.dp-nurse-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.dp-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.dp-section-label strong { color: var(--color-text); }
+
+.doctor-label {
+  color: var(--color-secondary);
+  border-bottom: 1px dashed var(--color-border-light);
+  padding-bottom: 8px;
+}
+
+.dp-nurse-note-text, .dp-doctor-note-text {
+  font-family: inherit;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: var(--color-text);
+}
+
+.dp-note-time {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+/* Doctor's note inside nurse's box */
+.dp-doctor-inside {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--color-border);
+}
+
+.dp-doctor-divider {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-secondary);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dp-doctor-entry {
+  background: #f8f9ff;
+  border: 1px solid #dde3f0;
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.dp-doctor-entry:last-child { margin-bottom: 0; }
+
+.dp-doctor-entry-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
+.dp-doctor-entry-meta strong { color: var(--color-text-secondary); }
+
+.dp-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  margin-left: auto;
+  color: var(--color-text-muted);
+  transition: all var(--transition);
+}
+
+.dp-delete-btn:hover {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.dp-doctor-entry-text {
+  font-family: inherit;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  color: #3a4a6b;
+  margin: 0;
+}
+
+.dp-all-notes h4 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--color-text);
+}
+
+.dp-doctor-ref-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.dp-note-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.dp-note-meta strong { color: var(--color-text-secondary); }
+
+.dp-nurse-ref {
+  font-size: 0.7rem;
+  color: var(--color-secondary);
+  font-weight: 500;
+}
+
+.dp-note-sep { color: var(--color-border); }
+
+.dp-note-text {
+  font-family: inherit;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: var(--color-text);
+}
+
+.dp-note-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.dp-note-meta strong { color: var(--color-text-secondary); }
+.dp-note-role { color: var(--color-secondary); font-weight: 500; }
+.dp-note-sep { color: var(--color-border); }
+
+.dp-note-text {
+  font-family: inherit;
+  font-size: 0.83rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: var(--color-text);
+}
