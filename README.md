@@ -4,13 +4,13 @@ A full-stack web application for transforming raw nurse audio transcriptions int
 
 ## Features
 
-- **🎤 Voice-to-Text & Manual Entry** — Dictate or type nurse verbal reports
-- **🤖 AI Synthesis Engine** — Automatically splits transcripts into SBAR handover and SOAP progress notes
-- **📋 Bed Dashboard** — Ward overview with patient bed cards and report status indicators (amber = pending, green = signed)
-- **📝 Dual Report View** — Side-by-side Handover Report (practical/temporary) and Official Progress Note (formal/legal)
-- **✏️ Inline Editing with Audit Trail** — Full edit history tracking: every change is logged with nurse ID and timestamp
-- **✅ Approve & Sign** — One-click sign-off workflow
-- **🎨 Calm Tech Aesthetic** — Soft eucalyptus greens, slate grays, muted blues — designed for high-stress clinical environments
+-  Voice-to-Text & Manual Entry** — Dictate or type nurse verbal reports
+-  AI Synthesis Engine** — Automatically splits transcripts into SBAR handover and SOAP progress notes
+-  Bed Dashboard** — Ward overview with patient bed cards and report status indicators (amber = pending, green = signed)
+-  Dual Report View** — Side-by-side Handover Report (practical/temporary) and Official Progress Note (formal/legal)
+-  Inline Editing with Audit Trail** — Full edit history tracking: every change is logged with nurse ID and timestamp
+-  Approve & Sign** — One-click sign-off workflow
+-  Calm Tech Aesthetic** — Soft eucalyptus greens, slate grays, muted blues — designed for high-stress clinical environments
 
 ## Tech Stack
 
