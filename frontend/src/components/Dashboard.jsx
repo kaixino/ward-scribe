@@ -4,7 +4,7 @@ import './Dashboard.css';
 
 const API_BASE = '/api';
 
-export default function Dashboard({ patients, onSelectPatient, currentNurse, onViewPassing }) {
+export default function Dashboard({ patients, onSelectPatient, currentNurse, onViewPassing, ward, room }) {
   const isDoctor = currentNurse && /dr\.|doctor|MO|consultant|medical officer/i.test(currentNurse.role || '');
   const [reportStatus, setReportStatus] = useState({});
 
@@ -53,7 +53,7 @@ export default function Dashboard({ patients, onSelectPatient, currentNurse, onV
   return (
     <div className="dashboard">
       <div className="dashboard-header">
-        <h2>Ward Overview</h2>
+        <h2>{room?.name || 'Ward Overview'}</h2>
         <p className="dashboard-subtitle">Select a patient bed to create or review documentation</p>
       </div>
 

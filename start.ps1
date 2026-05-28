@@ -1,9 +1,9 @@
-# CareNotes — Startup Script (PowerShell)
+# WardScribe — Startup Script (PowerShell)
 # Right-click and "Run with PowerShell" or run from terminal:
 #   powershell -ExecutionPolicy Bypass -File start.ps1
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host " CareNotes — Starting Servers" -ForegroundColor Cyan
+Write-Host " WardScribe — Starting Servers" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 

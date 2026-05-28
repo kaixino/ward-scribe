@@ -5,23 +5,32 @@ import ReportCard from './components/ReportCard';
 import CombinedReport from './components/CombinedReport';
 import LoginPage from './components/LoginPage';
 import WardSelector from './components/WardSelector';
+import RoomSelector from './components/RoomSelector';
 import DoctorPanel from './components/DoctorPanel';
 import PassingOverPanel from './components/PassingOverPanel';
-import { ClipboardList, Mic, FileText, ChevronLeft, User, Layers, Stethoscope, ArrowLeftRight } from 'lucide-react';
+import ShiftReportsView from './components/ShiftReportsView';
+import { ClipboardList, Mic, FileText, ChevronLeft, User, Layers, Stethoscope, ArrowLeftRight, DoorOpen, Building2, Search } from 'lucide-react';
 import './App.css';
 
 const API_BASE = '/api';
 
 export default function App() {
-  const [view, setView] = useState('login'); // login | wardSelect | dashboard | recording | review | combined | doctor | passing
+  const [view, setView] = useState('login'); // login | wardSelect | roomSelect | dashboard | recording | review | combined | doctor | doctorSelect | passing | shiftReports
   const [patients, setPatients] = useState([]);
   const [wards, setWards] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [selectedWard, setSelectedWard] = useState(null);
+  const [selectedRoom, setSelectedRoom] = useState(null);
   const [currentNurse, setCurrentNurse] = useState(null);
   const [report, setReport] = useState(null);
   const [allReports, setAllReports] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredPatients = patients.filter(p =>
+    p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.bed_number?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   useEffect(() => {
     fetchWards();
@@ -37,9 +46,9 @@ export default function App() {
     }
   }
 
-  async function fetchPatients(wardId) {
+  async function fetchPatientsByRoom(roomId) {
     try {
-      const res = await fetch(`${API_BASE}/patients?ward=${wardId}`);
+      const res = await fetch(`${API_BASE}/patients?room=${roomId}`);
       const data = await res.json();
       setPatients(data);
     } catch (err) {
@@ -47,25 +56,51 @@ export default function App() {
     }
   }
 
+  async function fetchPatientReports(patientId) {
+    try {
+      const res = await fetch(`${API_BASE}/patients/${patientId}/all-reports`);
+      if (res.ok) {
+        const data = await res.json();
+        setAllReports(data);
+        if (data.length > 0) setReport(data[0]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch reports:', err);
+    }
+  }
+
   const isDoctor = currentNurse && /dr\.|doctor|MO|consultant|medical officer/i.test(currentNurse.role || '');
 
   function handleLogin(nurse) {
     setCurrentNurse(nurse);
-    setView('wardSelect');
+    const isDoctor = /dr\.|doctor|MO|consultant|medical officer/i.test(nurse.role || '');
+    if (isDoctor) {
+      handleDoctorView();
+    } else {
+      setView('wardSelect');
+    }
   }
 
   function handleLogout() {
     setCurrentNurse(null);
     setSelectedWard(null);
+    setSelectedRoom(null);
     setPatients([]);
     setReport(null);
     setView('login');
   }
 
-  async function handleWardSelect(ward) {
+  function handleWardSelect(ward) {
     setSelectedWard(ward);
+    setSelectedRoom(null);
+    setPatients([]);
+    setView('roomSelect');
+  }
+
+  async function handleRoomSelect(room) {
+    setSelectedRoom(room);
     setView('dashboard');
-    await fetchPatients(ward.id);
+    await fetchPatientsByRoom(room.id);
   }
 
   async function handlePatientSelect(patient) {
@@ -77,20 +112,10 @@ export default function App() {
     setView('recording');
     setReport(null);
     setAllReports([]);
-    // Fetch all reports for timeline view
-    try {
-      const res = await fetch(`${API_BASE}/patients/${patient.id}/all-reports`);
-      if (res.ok) {
-        const data = await res.json();
-        setAllReports(data);
-        if (data.length > 0) setReport(data[0]); // latest for recording panel
-      }
-    } catch (err) {
-      console.error('Failed to fetch reports:', err);
-    }
+    await fetchPatientReports(patient.id);
   }
 
-  async function handleTranscribe(transcript) {
+  async function handleTranscribe(transcript, appendMode) {
     if (!selectedPatient || !currentNurse) return;
     setLoading(true);
     try {
@@ -102,10 +127,13 @@ export default function App() {
           nurse_id: currentNurse.id,
           transcript,
           report_type: isDoctor ? 'doctor' : 'nurse',
+          append: appendMode && !isDoctor ? true : false,
         }),
       });
       const data = await res.json();
       setReport(data);
+      // Real-time state update: re-fetch all reports immediately
+      await fetchPatientReports(selectedPatient.id);
       if (isDoctor) {
         setView('doctor');
       } else {
@@ -122,7 +150,6 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE}/reports/${reportId}`, { method: 'DELETE' });
       if (res.ok) {
-        // Remove from local state
         setAllReports(prev => prev.filter(r => r.id !== reportId));
         if (report?.id === reportId) setReport(allReports.find(r => r.id !== reportId) || null);
       }
@@ -145,14 +172,55 @@ export default function App() {
       });
       const data = await res.json();
       setReport(data);
+      // Refresh all reports to maintain sync
+      await fetchPatientReports(selectedPatient.id);
     } catch (err) {
       console.error('Failed to update report:', err);
     }
   }
 
+  function handleViewReports() {
+    setSelectedPatient(null);
+    setView('shiftReports');
+  }
+
+  function handleViewPassingFromWard() {
+    fetch(`${API_BASE}/patients`)
+      .then(r => r.json())
+      .then(data => setPatients(data))
+      .catch(() => {});
+    setView('passing');
+  }
+
+  function handleDoctorSelectPatient(patient) {
+    setSelectedPatient(patient);
+    setReport(null);
+    setAllReports([]);
+    setView('doctor');
+  }
+
+  function handleDoctorView() {
+    fetch(`${API_BASE}/patients`)
+      .then(r => r.json())
+      .then(data => setPatients(data))
+      .catch(() => {});
+    setView('doctorSelect');
+  }
+
   function handleBack() {
-    if (view === 'combined' || view === 'doctor' || view === 'passing') {
+    if (view === 'shiftReports' || view === 'doctorSelect') {
+      setView('wardSelect');
+    } else if (view === 'combined') {
       setView('dashboard');
+      setSelectedPatient(null);
+      setReport(null);
+    } else if (view === 'doctor') {
+      // Go back to patient selection if from doctorSelect, else back to dashboard
+      setView('doctorSelect');
+      setSelectedPatient(null);
+      setReport(null);
+    } else if (view === 'passing') {
+      setView('wardSelect');
       setSelectedPatient(null);
       setReport(null);
     } else if (view === 'recording' || view === 'review') {
@@ -160,16 +228,21 @@ export default function App() {
       setSelectedPatient(null);
       setReport(null);
     } else if (view === 'dashboard') {
+      setView('roomSelect');
+      setSelectedRoom(null);
+      setPatients([]);
+    } else if (view === 'roomSelect') {
       setView('wardSelect');
       setSelectedWard(null);
-      setPatients([]);
+      setSelectedRoom(null);
     }
   }
 
-  function getWardName() {
+  function getLocationName() {
+    if (selectedRoom) return selectedRoom.name;
     if (selectedWard) return selectedWard.name;
     if (report && selectedPatient) return selectedPatient.ward_name || 'Ward';
-    return 'CareNotes';
+    return 'WardScribe';
   }
 
   const showHeader = view !== 'login';
@@ -186,11 +259,15 @@ export default function App() {
             )}
             <div className="app-logo" onClick={() => setView('wardSelect')} style={{ cursor: 'pointer' }}>
               <ClipboardList size={24} className="logo-icon" />
-              <h1 className="app-title">CareNotes</h1>
+              <h1 className="app-title">WardScribe</h1>
             </div>
           </div>
           <div className="header-center">
-            <span className="badge-ward">{getWardName()}</span>
+            <span className="badge-ward">
+              {selectedWard && <Building2 size={14} style={{ marginRight: 4 }} />}
+              {getLocationName()}
+              {selectedRoom && <> <span style={{ opacity: 0.5 }}>·</span> <DoorOpen size={12} style={{ margin: '0 2px' }} />{selectedRoom.name}</>}
+            </span>
           </div>
           <div className="header-right">
             {currentNurse && (
@@ -217,6 +294,17 @@ export default function App() {
             currentNurse={currentNurse}
             onSelectWard={handleWardSelect}
             onLogout={handleLogout}
+            onViewReports={handleViewReports}
+            onViewPassing={handleViewPassingFromWard}
+            onViewDoctor={handleDoctorView}
+          />
+        )}
+
+        {view === 'roomSelect' && selectedWard && (
+          <RoomSelector
+            ward={selectedWard}
+            onSelectRoom={handleRoomSelect}
+            onBack={handleBack}
           />
         )}
 
@@ -224,6 +312,7 @@ export default function App() {
           <Dashboard
             patients={patients}
             ward={selectedWard}
+            room={selectedRoom}
             currentNurse={currentNurse}
             onSelectPatient={handlePatientSelect}
             onViewPassing={(patient) => {
@@ -239,7 +328,51 @@ export default function App() {
             selectedWard={selectedWard}
             currentNurse={currentNurse}
             onBack={handleBack}
+            onReportsUpdated={() => fetchPatientReports(selectedPatient.id)}
           />
+        )}
+
+        {view === 'shiftReports' && (
+          <ShiftReportsView
+            currentNurse={currentNurse}
+            onBack={handleBack}
+          />
+        )}
+
+        {view === 'doctorSelect' && (
+          <div className="sr-view">
+            <div className="sr-header">
+              <button className="btn-icon" onClick={handleBack}><ChevronLeft size={22} /></button>
+              <div>
+                <h2><Stethoscope size={20} /> Doctor's Log</h2>
+                <p className="sr-subtitle">Select a patient to view and append to their progress notes</p>
+              </div>
+            </div>
+            <div className="sr-search">
+              <Search size={16} />
+              <input
+                type="text"
+                placeholder="Search patient name or bed..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="sr-patient-grid">
+              {filteredPatients.length > 0 ? filteredPatients.map(p => (
+                <button key={p.id} className="sr-patient-card" onClick={() => handleDoctorSelectPatient(p)}>
+                  <div className="sr-patient-top">
+                    <span className="sr-patient-name">{p.name}</span>
+                    <span className="sr-patient-bed">{p.bed_number}</span>
+                  </div>
+                  <div className="sr-patient-meta">
+                    {p.age && <span>{p.age} yrs</span>}
+                    {p.gender && <span>{p.gender}</span>}
+                    {p.ward_name && <span>{p.ward_name}</span>}
+                  </div>
+                </button>
+              )) : <div className="sr-empty">No patients found</div>}
+            </div>
+          </div>
         )}
 
         {view === 'passing' && (
@@ -256,7 +389,10 @@ export default function App() {
             existingReport={report}
             onTranscribe={handleTranscribe}
             loading={loading}
-            onViewReport={() => setView('review')}
+            onViewReport={() => {
+              // Re-fetch reports to ensure latest data before viewing
+              fetchPatientReports(selectedPatient.id).then(() => setView('review'));
+            }}
             onViewCombined={() => setView('combined')}
           />
         )}

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Mic, Square, Loader2, FileText, Volume2, AlertTriangle, Layers, Play } from 'lucide-react';
+import { Mic, Square, Loader2, FileText, Volume2, AlertTriangle, Layers, Play, Clock } from 'lucide-react';
 import './RecordingPanel.css';
 
 export default function RecordingPanel({
@@ -144,8 +144,9 @@ export default function RecordingPanel({
 
   // Demo mode — fills in a realistic transcript for testing
   function loadDemoTranscript() {
+    const time = getCurrentTime();
     setTranscript(
-      'Bed 3 Mrs Tan Mei Ling had a fall in the bathroom at approximately 2pm this afternoon. No injury sustained but she appears unsteady on her feet. Vital signs: BP 130/80, HR 78, SpO2 97% on room air. She denies any pain. Bed alarm has been applied. Doctor Smith was notified at 2:15pm. Family has been informed. Plan is to assist with all bathroom visits for the next 24 hours.'
+      `[${time}] Bed 3 Mrs Tan Mei Ling had a fall in the bathroom at approximately 2pm this afternoon. No injury sustained but she appears unsteady on her feet.\n[${time}] Vital signs: BP 130/80, HR 78, SpO2 97% on room air. She denies any pain.\n[${time}] Bed alarm has been applied. Doctor Smith was notified at 2:15pm. Family has been informed.\n[${time}] Plan is to assist with all bathroom visits for the next 24 hours.`
     );
   }
 
@@ -157,9 +158,23 @@ export default function RecordingPanel({
     }
   }
 
+  /** Get current time string for timestamping */
+  function getCurrentTime() {
+    return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  /** Prepend timestamp to transcript lines */
+  function timestampTranscript(raw) {
+    const time = getCurrentTime();
+    const lines = raw.split('\n').filter(l => l.trim());
+    return lines.map(l => `[${time}] ${l.trim()}`).join('\n');
+  }
+
   function handleSubmit() {
     if (!transcript.trim()) return;
-    onTranscribe(transcript);
+    // Add timestamp to transcript before submitting
+    const timestamped = timestampTranscript(transcript);
+    onTranscribe(timestamped, true); // true = append mode
   }
 
   function handleKeyDown(e) {
@@ -263,7 +278,8 @@ export default function RecordingPanel({
       {/* Transcript Area */}
       <div className="transcript-area">
         <label className="transcript-label">
-          {isRecording ? '🎤 Live Transcription' : '📝 Dictation / Manual Entry'}
+          <Clock size={13} />
+          {isRecording ? `🎤 Recording at ${getCurrentTime()}` : `📝 Dictation at ${getCurrentTime()}`}
         </label>
         <textarea
           ref={textareaRef}

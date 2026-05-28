@@ -325,31 +325,155 @@
 
 .dp-note-text {
   font-family: inherit;
-  font-size: 0.8rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  color: var(--color-text);
-}
-
-.dp-note-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-}
-
-.dp-note-meta strong { color: var(--color-text-secondary); }
-.dp-note-role { color: var(--color-secondary); font-weight: 500; }
-.dp-note-sep { color: var(--color-border); }
-
-.dp-note-text {
-  font-family: inherit;
   font-size: 0.83rem;
   line-height: 1.65;
   white-space: pre-wrap;
   word-wrap: break-word;
   color: var(--color-text);
+}
+
+/* ---- Day Group containers in DoctorPanel ---- */
+.dp-day-group {
+  margin-bottom: 20px;
+}
+
+.dp-day-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  margin-bottom: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.dp-day-count {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  background: var(--color-surface-hover);
+  padding: 1px 8px;
+  border-radius: 8px;
+}
+
+.dp-day-reports {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ---- Selected nurse section highlight ---- */
+.dp-nurse-selected {
+  border-left-color: var(--color-secondary) !important;
+  background: #f8f9ff;
+}
+
+/* ---- All notes header ---- */
+.dp-all-notes-header {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+/* ---- Tooltip (shared with CombinedReport) ---- */
+.attribution-tooltip {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  background: var(--color-text);
+  color: white;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.attribution-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid var(--color-text);
+}
+
+.tooltip-nurse {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 3px;
+}
+
+.tooltip-role {
+  opacity: 0.7;
+  font-size: 0.7rem;
+}
+
+.tooltip-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.7;
+  font-size: 0.7rem;
+}
+
+/* Hover-reveal areas for tooltip */
+.hover-reveal {
+  cursor: default;
+  position: relative;
+}
+
+/* ---- Empty State (no reports found) ---- */
+.dp-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--color-text-muted);
+  gap: 12px;
+}
+
+.dp-empty-state h3 {
+  font-size: 1.1rem;
+  color: var(--color-text);
+}
+
+.dp-empty-state .btn-primary {
+  margin-top: 8px;
+}
+
+/* ---- Report author badge in card ---- */
+.dp-report-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+/* ---- Pending doctor's note indicator ---- */
+.dp-doctor-pending {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--color-accent-amber);
+}
+
+.dp-doctor-pending-label {
+  font-size: 0.75rem;
+  color: var(--color-accent-amber);
+  font-weight: 500;
 }

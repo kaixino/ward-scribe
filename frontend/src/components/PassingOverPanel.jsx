@@ -5,8 +5,8 @@ import './PassingOverPanel.css';
 const API_BASE = '/api';
 
 export default function PassingOverPanel({ patients, currentNurse, onBack }) {
-  const [allPatients, setAllPatients] = useState(patients || []);
-  const [selectedPatient, setSelectedPatient] = useState(patients?.[0] || null);
+  const [allPatients, setAllPatients] = useState([]);
+  const [selectedPatient, setSelectedPatient] = useState(null);
   const [passingOvers, setPassingOvers] = useState([]);
   const [transcript, setTranscript] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -24,6 +24,24 @@ export default function PassingOverPanel({ patients, currentNurse, onBack }) {
   const textareaRef = useRef(null);
   const sttRecognitionRef = useRef(null);
   const sttActiveRef = useRef(false);
+
+  // Fetch ALL patients on mount so nurses can choose any patient
+  useEffect(() => {
+    fetchAllPatients();
+  }, []);
+
+  async function fetchAllPatients() {
+    try {
+      const res = await fetch(`${API_BASE}/patients`);
+      if (res.ok) {
+        const data = await res.json();
+        setAllPatients(data);
+        if (data.length > 0 && !selectedPatient) {
+          setSelectedPatient(data[0]);
+        }
+      }
+    } catch { /* ignore */ }
+  }
 
   useEffect(() => {
     if (selectedPatient) fetchPassingOvers();

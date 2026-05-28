@@ -1,7 +1,7 @@
 {
-  "name": "carenotes",
+  "name": "ward-scribe",
   "version": "1.0.0",
-  "description": "CareNotes — AI-Powered Nursing Documentation System",
+  "description": "WardScribe — AI-Powered Nursing Documentation System",
   "scripts": {
     "install:all": "cd backend && npm install && cd ../frontend && npm install",
     "dev:backend": "cd backend && npm run dev",

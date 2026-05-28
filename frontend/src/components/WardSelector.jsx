@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, HeartPulse, Baby, Stethoscope, ArrowRight } from 'lucide-react';
+import { Building2, HeartPulse, Baby, Stethoscope, ArrowRight, FileText, ArrowLeftRight } from 'lucide-react';
 import './WardSelector.css';
 
 const wardIcons = {
@@ -16,7 +16,7 @@ const wardColors = {
   'ward-mat': '#b88dc4',
 };
 
-export default function WardSelector({ wards, currentNurse, onSelectWard, onLogout }) {
+export default function WardSelector({ wards, currentNurse, onSelectWard, onLogout, onViewReports, onViewPassing, onViewDoctor }) {
   return (
     <div className="ward-selector">
       <div className="ward-header">
@@ -55,6 +55,31 @@ export default function WardSelector({ wards, currentNurse, onSelectWard, onLogo
             </button>
           );
         })}
+      </div>
+
+      {/* Global action cards */}
+      <div className="ward-actions">
+        <button className="ward-action-card" onClick={onViewReports}>
+          <div className="ward-action-icon" style={{ background: '#3a7d5c18', color: '#3a7d5c' }}>
+            <FileText size={24} />
+          </div>
+          <div className="ward-action-body">
+            <h3>All Patient Reports</h3>
+            <p>View combined handover & progress notes for all patients across all wards</p>
+          </div>
+          <ArrowRight size={20} className="ward-action-arrow" />
+        </button>
+
+        <button className="ward-action-card" onClick={onViewPassing}>
+          <div className="ward-action-icon" style={{ background: '#c9706518', color: '#c97065' }}>
+            <ArrowLeftRight size={24} />
+          </div>
+          <div className="ward-action-body">
+            <h3>Passing Over — Shift Handoff</h3>
+            <p>Record handoff notes & audio for the next nurse</p>
+          </div>
+          <ArrowRight size={20} className="ward-action-arrow" />
+        </button>
       </div>
     </div>
   );

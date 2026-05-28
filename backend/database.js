@@ -62,6 +62,14 @@ function initializeTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS rooms (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      ward_id TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (ward_id) REFERENCES wards(id)
+    );
+
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -79,8 +87,13 @@ function initializeTables() {
       name TEXT NOT NULL,
       bed_number TEXT NOT NULL,
       ward_id TEXT NOT NULL,
+      room_id TEXT,
+      age INTEGER,
+      gender TEXT,
+      medical_history TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (ward_id) REFERENCES wards(id)
+      FOREIGN KEY (ward_id) REFERENCES wards(id),
+      FOREIGN KEY (room_id) REFERENCES rooms(id)
     );
 
     CREATE TABLE IF NOT EXISTS reports (
@@ -169,34 +182,61 @@ function seedData() {
     ]);
   }
 
+  const roomCount = db.exec("SELECT COUNT(*) as count FROM rooms");
+  if (!roomCount.length || !roomCount[0].values.length || roomCount[0].values[0][0] === 0) {
+    const rooms = [
+      // General Ward
+      ['room-gw-1', 'Room 101', 'ward-gw'],
+      ['room-gw-2', 'Room 102', 'ward-gw'],
+      ['room-gw-3', 'Room 103', 'ward-gw'],
+      // ICU
+      ['room-icu-1', 'ICU Bay A', 'ward-icu'],
+      ['room-icu-2', 'ICU Bay B', 'ward-icu'],
+      // Paediatrics
+      ['room-peds-1', 'Paeds Ward A', 'ward-peds'],
+      ['room-peds-2', 'Paeds Ward B', 'ward-peds'],
+      // Maternity
+      ['room-mat-1', 'Maternity Ward', 'ward-mat'],
+      ['room-mat-2', 'Nursery', 'ward-mat'],
+    ];
+    for (const r of rooms) {
+      db.run("INSERT INTO rooms (id, name, ward_id) VALUES (?, ?, ?)", r);
+    }
+  }
+
   const patientCount = db.exec("SELECT COUNT(*) as count FROM patients");
   if (!patientCount.length || !patientCount[0].values.length || patientCount[0].values[0][0] === 0) {
     const patients = [
-      // General Ward
-      ['pat-001', 'Tan Ah Kow', 'Bed 1', 'ward-gw'],
-      ['pat-002', 'Mary Lim', 'Bed 2', 'ward-gw'],
-      ['pat-003', 'Mrs. Tan Mei Ling', 'Bed 3', 'ward-gw'],
-      ['pat-004', 'Johnathan Wong', 'Bed 4', 'ward-gw'],
-      ['pat-005', 'Priya Sharma', 'Bed 5', 'ward-gw'],
-      ['pat-006', 'Robert Johnson', 'Bed 6', 'ward-gw'],
-      // ICU
-      ['pat-007', 'Mr. K. Siva', 'ICU-1', 'ward-icu'],
-      ['pat-008', 'Mdm. Fatimah Ali', 'ICU-2', 'ward-icu'],
-      ['pat-009', 'Mr. David Chen', 'ICU-3', 'ward-icu'],
-      ['pat-010', 'Mdm. Rosie Tan', 'ICU-4', 'ward-icu'],
-      // Paediatrics
-      ['pat-011', 'Baby Aisha', 'Cot 1', 'ward-peds'],
-      ['pat-012', 'Master Ethan Ng', 'Bed 2', 'ward-peds'],
-      ['pat-013', 'Miss Lily Wong', 'Bed 3', 'ward-peds'],
-      ['pat-014', 'Master Noah Lim', 'Bed 4', 'ward-peds'],
-      // Maternity
-      ['pat-015', 'Mdm. Siti Nurhaliza', 'Room 1', 'ward-mat'],
-      ['pat-016', 'Mdm. Jane Doe', 'Room 2', 'ward-mat'],
-      ['pat-017', 'Mrs. Kavitha Raj', 'Room 3', 'ward-mat'],
-      ['pat-018', 'Baby Boy Raj', 'Nursery 1', 'ward-mat'],
+      // General Ward — Room 101
+      ['pat-001', 'Tan Ah Kow', 'Bed 1', 'ward-gw', 'room-gw-1', 72, 'Male', 'Hypertension, Type 2 Diabetes Mellitus, history of stroke 2019'],
+      ['pat-002', 'Mary Lim', 'Bed 2', 'ward-gw', 'room-gw-1', 65, 'Female', 'COPD, Osteoarthritis'],
+      // General Ward — Room 102
+      ['pat-003', 'Mrs. Tan Mei Ling', 'Bed 3', 'ward-gw', 'room-gw-2', 78, 'Female', 'Dementia, Hypertension, recurrent UTIs'],
+      ['pat-004', 'Johnathan Wong', 'Bed 4', 'ward-gw', 'room-gw-2', 55, 'Male', 'Ischaemic heart disease, hyperlipidaemia'],
+      // General Ward — Room 103
+      ['pat-005', 'Priya Sharma', 'Bed 5', 'ward-gw', 'room-gw-3', 34, 'Female', 'Asthma, anaemia'],
+      ['pat-006', 'Robert Johnson', 'Bed 6', 'ward-gw', 'room-gw-3', 82, 'Male', 'Parkinson\'s disease, GERD, prostate cancer (remission)'],
+      // ICU — Bay A
+      ['pat-007', 'Mr. K. Siva', 'ICU-1', 'ward-icu', 'room-icu-1', 60, 'Male', 'Septic shock, acute kidney injury, diabetes mellitus'],
+      ['pat-008', 'Mdm. Fatimah Ali', 'ICU-2', 'ward-icu', 'room-icu-1', 70, 'Female', 'Community-acquired pneumonia, heart failure'],
+      // ICU — Bay B
+      ['pat-009', 'Mr. David Chen', 'ICU-3', 'ward-icu', 'room-icu-2', 45, 'Male', 'Post-laparotomy, acute respiratory distress syndrome'],
+      ['pat-010', 'Mdm. Rosie Tan', 'ICU-4', 'ward-icu', 'room-icu-2', 68, 'Female', 'Status epilepticus, hypertension'],
+      // Paediatrics — Ward A
+      ['pat-011', 'Baby Aisha', 'Cot 1', 'ward-peds', 'room-peds-1', 1, 'Female', 'Bronchiolitis, mild dehydration'],
+      ['pat-012', 'Master Ethan Ng', 'Bed 2', 'ward-peds', 'room-peds-1', 8, 'Male', 'Asthma exacerbation, allergic rhinitis'],
+      // Paediatrics — Ward B
+      ['pat-013', 'Miss Lily Wong', 'Bed 3', 'ward-peds', 'room-peds-2', 6, 'Female', 'Gastroenteritis, febrile seizure history'],
+      ['pat-014', 'Master Noah Lim', 'Bed 4', 'ward-peds', 'room-peds-2', 12, 'Male', 'Appendicectomy (post-op day 1)'],
+      // Maternity — Maternity Ward
+      ['pat-015', 'Mdm. Siti Nurhaliza', 'Room 1', 'ward-mat', 'room-mat-1', 32, 'Female', 'Gravida 2 Para 1, post-partum haemorrhage risk'],
+      ['pat-016', 'Mdm. Jane Doe', 'Room 2', 'ward-mat', 'room-mat-1', 29, 'Female', 'Pre-eclampsia, scheduled induction'],
+      // Maternity — Nursery
+      ['pat-017', 'Mrs. Kavitha Raj', 'Room 3', 'ward-mat', 'room-mat-2', 35, 'Female', 'Gravida 3 Para 2, post-Caesarean section'],
+      ['pat-018', 'Baby Boy Raj', 'Nursery 1', 'ward-mat', 'room-mat-2', 0, 'Male', 'Neonatal jaundice, phototherapy'],
     ];
     for (const p of patients) {
-      db.run("INSERT INTO patients (id, name, bed_number, ward_id) VALUES (?, ?, ?, ?)", p);
+      db.run("INSERT INTO patients (id, name, bed_number, ward_id, room_id, age, gender, medical_history) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", p);
     }
   }
 }

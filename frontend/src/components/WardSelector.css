@@ -99,3 +99,75 @@
 .ward-card:hover .ward-card-arrow {
   color: var(--ward-accent, var(--color-primary));
 }
+
+/* ---- Global Action Cards (Reports & Passing Over) ---- */
+.ward-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border-light);
+}
+
+.ward-action-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+}
+
+.ward-action-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.ward-action-card:active {
+  transform: translateY(0);
+}
+
+.ward-action-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.ward-action-body {
+  flex: 1;
+}
+
+.ward-action-body h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 2px;
+}
+
+.ward-action-body p {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.ward-action-arrow {
+  color: var(--color-border);
+  flex-shrink: 0;
+  transition: color var(--transition), transform var(--transition);
+}
+
+.ward-action-card:hover .ward-action-arrow {
+  color: var(--color-primary);
+  transform: translateX(4px);
+}

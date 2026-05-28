@@ -51,7 +51,7 @@ export default function LoginPage({ onLogin }) {
           <div className="login-logo-icon">
             <ClipboardList size={36} />
           </div>
-          <h1>CareNotes</h1>
+          <h1>WardScribe</h1>
           <p className="login-tagline">Nursing Documentation System</p>
         </div>
 

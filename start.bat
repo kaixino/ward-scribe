@@ -1,15 +1,15 @@
 @echo off
-title CareNotes — Nursing Documentation System
+title WardScribe — Nursing Documentation System
 echo ========================================
-echo  CareNotes — Starting Servers
+echo  WardScribe — Starting Servers
 echo ========================================
 echo.
 echo Starting Backend (port 3001)...
-start "CareNotes-Backend" cmd /c "cd /d %~dp0backend && node server.js"
+start "WardScribe-Backend" cmd /c "cd /d %~dp0backend && node server.js"
 timeout /t 2 /nobreak >nul
 
 echo Starting Frontend (port 5173)...
-start "CareNotes-Frontend" cmd /c "cd /d %~dp0frontend && npx vite --host"
+start "WardScribe-Frontend" cmd /c "cd /d %~dp0frontend && npx vite --host"
 timeout /t 2 /nobreak >nul
 
 echo.

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Clock, User, ChevronLeft, Loader2, FileText, Mic, Stethoscope } from 'lucide-react';
+import { Users, Clock, User, ChevronLeft, Loader2, FileText, Mic, Stethoscope, ClipboardList, Calendar } from 'lucide-react';
 import './CombinedReport.css';
 
 const API_BASE = '/api';
@@ -8,8 +8,7 @@ export default function CombinedReport({ patient, currentNurse, onBack, onNewEnt
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [hoveredLine, setHoveredLine] = useState(null);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [tooltip, setTooltip] = useState(null);
 
   useEffect(() => {
     fetchConsolidated();
@@ -29,42 +28,19 @@ export default function CombinedReport({ patient, currentNurse, onBack, onNewEnt
     }
   }
 
-  function handleMouseEnter(e, entry) {
+  function handleTextHover(e, info) {
     const rect = e.target.getBoundingClientRect();
-    setTooltipPos({ x: rect.left + rect.width / 2, y: rect.top - 8 });
-    setHoveredLine(entry);
+    setTooltip({
+      x: rect.left + rect.width / 2,
+      y: rect.top - 8,
+      nurseName: info.nurseName,
+      nurseRole: info.nurseRole,
+      timeFormatted: info.timeFormatted,
+    });
   }
 
-  function handleMouseLeave() {
-    setHoveredLine(null);
-  }
-
-  // Group entries by individual report, including doctor notes inside each box
-  function groupByReport(reports) {
-    return reports.map(r => ({
-      reportId: r.id,
-      nurseName: r.nurse_name,
-      nurseRole: r.nurse_role,
-      nurseId: r.created_by_nurse_id,
-      timestamp: r.timestamp,
-      timeFormatted: new Date(r.timestamp).toLocaleString('en-US', {
-        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-      }),
-      handoverText: r.handover_text,
-      progressText: r.progress_note_text,
-      doctorNotes: r.doctorNotes || [],
-      lines: (r.progress_note_text || '').split('\n').filter(l => l.trim()).map((line, i) => ({
-        text: line,
-        nurseName: r.nurse_name,
-        nurseRole: r.nurse_role,
-        nurseId: r.created_by_nurse_id,
-        reportId: r.id,
-        timestamp: r.timestamp,
-        timeFormatted: new Date(r.timestamp).toLocaleString('en-US', {
-          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-        }),
-      })),
-    }));
+  function handleTextLeave() {
+    setTooltip(null);
   }
 
   if (loading) {
@@ -81,17 +57,29 @@ export default function CombinedReport({ patient, currentNurse, onBack, onNewEnt
       <div className="combined-empty">
         <FileText size={40} />
         <h3>No combined report yet</h3>
-        <p>No nurse entries have been recorded for this patient.</p>
+        <p>No entries have been recorded for this patient.</p>
         <button className="btn-primary" onClick={onNewEntry}>Record First Entry</button>
       </div>
     );
   }
 
-  const reportGroups = groupByReport(data.reports);
-
   return (
     <div className="combined-report">
-      {/* Header */}
+      {/* Tooltip */}
+      {tooltip && (
+        <div className="attribution-tooltip" style={{ left: tooltip.x, top: tooltip.y }}>
+          <div className="tooltip-nurse">
+            <User size={13} />
+            <strong>{tooltip.nurseName}</strong>
+            <span className="tooltip-role">{tooltip.nurseRole}</span>
+          </div>
+          <div className="tooltip-time">
+            <Clock size={11} /> {tooltip.timeFormatted}
+          </div>
+        </div>
+      )}
+
+      {/* Header with patient info */}
       <div className="combined-header">
         <div className="combined-header-top">
           <button className="btn-icon" onClick={onBack} title="Back"><ChevronLeft size={22} /></button>
@@ -101,95 +89,97 @@ export default function CombinedReport({ patient, currentNurse, onBack, onNewEnt
         </div>
         <div className="combined-meta">
           <div className="combined-meta-item">
+            <Calendar size={15} />
+            <span><strong>{data.dayGroups?.length || 0}</strong> day{(data.dayGroups?.length || 0) !== 1 ? 's' : ''} · <strong>{data.reportCount}</strong> entr{data.reportCount !== 1 ? 'ies' : 'y'}</span>
+          </div>
+          <div className="combined-meta-item">
             <Users size={15} />
-            <span><strong>{data.nurseCount}</strong> nurse{data.nurseCount !== 1 ? 's' : ''} · <strong>{data.reportCount}</strong> entr{data.reportCount !== 1 ? 'ies' : 'y'}</span>
+            <span><strong>{data.nurseCount}</strong> nurse{data.nurseCount !== 1 ? 's' : ''}{data.doctorCount > 0 ? ` · ${data.doctorCount} doctor${data.doctorCount !== 1 ? 's' : ''}` : ''}</span>
           </div>
         </div>
       </div>
 
-      {/* Tooltip */}
-      {hoveredLine && (
-        <div className="attribution-tooltip" style={{ left: tooltipPos.x, top: tooltipPos.y }}>
-          <div className="tooltip-nurse">
-            <User size={13} />
-            <strong>{hoveredLine.nurseName}</strong>
-            <span className="tooltip-role">{hoveredLine.nurseRole}</span>
+      {/* Day-Aggregated Boxes — nurse name shown only on hover */}
+      {data.dayGroups?.map((dayGroup, dgi) => (
+        <div key={dgi} className="day-group">
+          <div className="day-group-label">
+            <Calendar size={16} />
+            <h3>{dayGroup.date}</h3>
+            <span className="day-group-count">{dayGroup.entries.length} entr{dayGroup.entries.length !== 1 ? 'ies' : 'y'}</span>
           </div>
-          <div className="tooltip-time">
-            <Clock size={11} />
-            {hoveredLine.timeFormatted}
+
+          <div className="day-group-content">
+            {dayGroup.entries.map((entry, ei) => {
+              const entryInfo = {
+                nurseName: entry.nurse_name || entry.created_by_name,
+                nurseRole: entry.nurse_role || entry.created_by_role,
+                timeFormatted: new Date(entry.timestamp).toLocaleString('en-US', {
+                  month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                }),
+              };
+              return (
+                <div key={entry.id || ei} className="entry-box">
+                  {/* Entry header — show time only, no nurse name */}
+                  <div className="entry-box-header">
+                    <Clock size={14} />
+                    <span className="entry-box-time">
+                      {entryInfo.timeFormatted}
+                    </span>
+                    <span className="entry-type-badge">
+                      {entry.report_type === 'doctor' ? 'Doctor' : 'Nurse'}
+                    </span>
+                  </div>
+
+                  {/* Progress Note */}
+                  {entry.progress_note_text && (
+                    <div className="entry-section entry-progress">
+                      <div className="entry-section-label">
+                        <ClipboardList size={13} /> Progress Note
+                      </div>
+                      <pre
+                        className="entry-text hover-reveal"
+                        onMouseMove={(e) => handleTextHover(e, entryInfo)}
+                        onMouseLeave={handleTextLeave}
+                      >{entry.progress_note_text}</pre>
+                    </div>
+                  )}
+
+                  {/* Doctor's Notes appended to this entry */}
+                  {entry.doctorNotes && entry.doctorNotes.length > 0 && (
+                    <div className="entry-section entry-doctor">
+                      <div className="entry-section-label">
+                        <Stethoscope size={13} /> Doctor's Notes
+                      </div>
+                      {entry.doctorNotes.map((dn, dni) => (
+                        <div key={dni} className="entry-doctor-item">
+                          <div className="entry-doctor-meta">
+                            <span className="entry-doctor-time">
+                              <Clock size={11} /> {dn.timeFormatted}
+                            </span>
+                          </div>
+                          <pre
+                            className="entry-doctor-text hover-reveal"
+                            onMouseMove={(e) => handleTextHover(e, {
+                              nurseName: dn.doctorName,
+                              nurseRole: dn.doctorRole,
+                              timeFormatted: dn.timeFormatted,
+                            })}
+                            onMouseLeave={handleTextLeave}
+                          >{dn.text}</pre>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
-      )}
-
-      {/* Per-Report Boxes — each entry = one box */}
-      {reportGroups.map((grp, gi) => {
-        const isYou = grp.nurseId === currentNurse?.id;
-        const accent = getColor(grp.nurseName);
-        return (
-          <div key={grp.reportId || gi} className={`nurse-box ${isYou ? 'nurse-box-you' : ''}`} style={{ borderLeftColor: accent }}>
-            <div className="nurse-box-header">
-              <div className="nurse-box-title">
-                <User size={16} />
-                <strong>{grp.nurseName}</strong>
-                <span className="nurse-box-role">{grp.nurseRole}</span>
-                {isYou && <span className="you-badge" style={{ marginLeft: 6 }}>You</span>}
-              </div>
-              <span className="nurse-box-count">{grp.timeFormatted}</span>
-            </div>
-            <div className="nurse-box-entries">
-              {grp.lines.map((entry, idx) => (
-                <div
-                  key={idx}
-                  className="entry-line"
-                  onMouseEnter={(e) => handleMouseEnter(e, entry)}
-                  onMouseLeave={handleMouseLeave}
-                >
-                  <span className="entry-indicator" style={{ backgroundColor: accent }} />
-                  <span className="entry-text">{entry.text}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Doctor's Notes inside same box */}
-            {grp.doctorNotes.length > 0 && (
-              <div className="nurse-box-doctor">
-                <div className="nurse-box-doctor-divider">👨‍⚕️ Doctor's Notes</div>
-                {grp.doctorNotes.map((dn, dIdx) => (
-                  <div key={dIdx} className="nurse-box-doctor-entry">
-                    <div className="nurse-box-doctor-meta">
-                      <Stethoscope size={12} />
-                      <strong>{dn.doctorName}</strong>
-                      <span className="nurse-box-doctor-role">{dn.doctorRole}</span>
-                      <span className="nurse-box-doctor-time">{dn.timeFormatted}</span>
-                    </div>
-                    <pre className="nurse-box-doctor-text">{dn.text}</pre>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="nurse-box-footer">
-              <Mic size={12} /> {grp.timeFormatted}
-            </div>
-          </div>
-        );
-      })}
+      ))}
 
       <button className="btn-primary combined-new-btn" onClick={onNewEntry}>
         <FileText size={16} /> Add New Entry
       </button>
     </div>
   );
-}
-
-const nurseColors = {};
-const colorPalette = ['#3a7d5c', '#5b7faf', '#b88dc4', '#c97065', '#e8c87a', '#5b9f7a'];
-
-function getColor(nurseName) {
-  if (!nurseColors[nurseName]) {
-    const idx = Object.keys(nurseColors).length % colorPalette.length;
-    nurseColors[nurseName] = colorPalette[idx];
-  }
-  return nurseColors[nurseName];
 }

@@ -69,6 +69,7 @@
   border-radius: 20px;
   font-size: 0.8rem;
   font-weight: 500;
+  gap: 4px;
 }
 
 .header-right {

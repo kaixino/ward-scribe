@@ -1,4 +1,4 @@
-# CareNotes — AI-Powered Nursing Documentation
+# WardScribe — AI-Powered Nursing Documentation
 
 A full-stack web application for transforming raw nurse audio transcriptions into structured **Handover Reports** and **Official Progress Notes** using AI synthesis.
 

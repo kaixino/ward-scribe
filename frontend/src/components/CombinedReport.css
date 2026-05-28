@@ -1,5 +1,5 @@
 /* ============================================
-   Combined Report — Multi-Nurse Attributed View
+   Combined Report — Day-Aggregated, No Nurse Names
    ============================================ */
 
 .combined-report {
@@ -62,34 +62,14 @@
   gap: 7px;
   font-size: 0.82rem;
   color: var(--color-text-secondary);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
+
+.combined-meta-item:last-child { margin-bottom: 0; }
 
 .combined-meta-item strong {
   color: var(--color-text);
   font-weight: 600;
-}
-
-.combined-meta-nurses {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.combined-nurse-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  background: var(--color-surface-hover);
-  color: var(--color-text-secondary);
-}
-
-.combined-nurse-tag.is-you {
-  background: var(--color-primary-light);
-  color: var(--color-primary-dark);
 }
 
 .you-badge {
@@ -101,6 +81,136 @@
   font-size: 0.62rem;
   font-weight: 600;
   margin-left: 2px;
+}
+
+/* ---- Day Groups ---- */
+.day-group {
+  margin-bottom: 28px;
+}
+
+.day-group-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+}
+
+.day-group-label h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.day-group-count {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  background: var(--color-surface-hover);
+  padding: 2px 10px;
+  border-radius: 10px;
+}
+
+.day-group-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---- Entry Box (one per report instance) ---- */
+.entry-box {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: box-shadow var(--transition);
+}
+
+.entry-box:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.entry-box-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: var(--color-surface-hover);
+  border-bottom: 1px solid var(--color-border-light);
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.entry-box-time {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.entry-type-badge {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.entry-type-badge:has(+ .entry-type-badge) {
+  margin-right: 4px;
+}
+
+/* ---- Sections inside an entry ---- */
+.entry-section {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.entry-section:last-child {
+  border-bottom: none;
+}
+
+.entry-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.entry-section.entry-handover .entry-section-label {
+  color: var(--color-accent-amber);
+}
+
+.entry-section.entry-progress .entry-section-label {
+  color: var(--color-primary);
+}
+
+.entry-section.entry-doctor .entry-section-label {
+  color: var(--color-secondary);
+}
+
+.entry-text {
+  font-family: inherit;
+  font-size: 0.83rem;
+  line-height: 1.6;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+}
+
+/* Hover-reveal areas for tooltip */
+.hover-reveal {
+  cursor: default;
+  position: relative;
 }
 
 /* ---- Tooltip ---- */
@@ -149,118 +259,8 @@
   font-size: 0.7rem;
 }
 
-/* ---- Nurse Boxes ---- */
-.nurse-box {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  border-left: 4px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  margin-bottom: 16px;
-  overflow: hidden;
-  transition: box-shadow var(--transition);
-}
-
-.nurse-box:hover {
-  box-shadow: var(--shadow-md);
-}
-
-.nurse-box-you {
-  background: #f8fbf8;
-}
-
-.nurse-box-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.nurse-box-title {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 0.88rem;
-}
-
-.nurse-box-title strong {
-  color: var(--color-text);
-}
-
-.nurse-box-role {
-  font-size: 0.72rem;
-  color: var(--color-text-muted);
-  background: var(--color-surface-hover);
-  padding: 1px 7px;
-  border-radius: 8px;
-}
-
-.nurse-box-count {
-  font-size: 0.72rem;
-  color: var(--color-text-muted);
-}
-
-.nurse-box-entries {
-  padding: 4px 0;
-}
-
-.nurse-box-footer {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 8px 18px;
-  border-top: 1px solid var(--color-border-light);
-  font-size: 0.7rem;
-  color: var(--color-text-muted);
-}
-
-/* ---- Entries inside boxes ---- */
-.entry-line {
-  display: flex;
-  align-items: stretch;
-  padding: 3px 18px;
-  transition: background var(--transition);
-  cursor: default;
-}
-
-.entry-line:hover {
-  background: var(--color-surface-hover);
-}
-
-.entry-indicator {
-  flex-shrink: 0;
-  width: 3px;
-  margin: 2px 12px 2px 0;
-  border-radius: 2px;
-}
-
-.entry-text {
-  font-size: 0.83rem;
-  line-height: 1.6;
-  color: var(--color-text);
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  padding-right: 16px;
-}
-
-/* ---- Doctor Notes Inside Nurse Box ---- */
-.nurse-box-doctor {
-  border-top: 2px dashed var(--color-border);
-  margin: 0 18px;
-  padding: 12px 0;
-}
-
-.nurse-box-doctor-divider {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-secondary);
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.nurse-box-doctor-entry {
+/* ---- Doctor Notes inside entry ---- */
+.entry-doctor-item {
   background: #f8f9ff;
   border: 1px solid #dde3f0;
   border-radius: var(--radius-sm);
@@ -268,9 +268,9 @@
   margin-bottom: 6px;
 }
 
-.nurse-box-doctor-entry:last-child { margin-bottom: 0; }
+.entry-doctor-item:last-child { margin-bottom: 0; }
 
-.nurse-box-doctor-meta {
+.entry-doctor-meta {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -279,23 +279,16 @@
   margin-bottom: 4px;
 }
 
-.nurse-box-doctor-meta strong { color: var(--color-text-secondary); }
-
-.nurse-box-doctor-role {
-  font-size: 0.65rem;
-  padding: 1px 5px;
-  background: var(--color-secondary-light);
-  color: var(--color-secondary);
-  border-radius: 6px;
-}
-
-.nurse-box-doctor-time {
+.entry-doctor-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-left: auto;
   font-size: 0.68rem;
   color: var(--color-text-muted);
 }
 
-.nurse-box-doctor-text {
+.entry-doctor-text {
   font-family: inherit;
   font-size: 0.8rem;
   line-height: 1.5;

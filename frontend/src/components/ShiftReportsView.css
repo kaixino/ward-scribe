@@ -1,0 +1,386 @@
+/* ============================================
+   Shift Reports View — All Patients + Shift-Combined Reports
+   ============================================ */
+
+.sr-view {
+  max-width: 780px;
+  margin: 0 auto;
+  animation: fadeIn 0.3s ease;
+}
+
+.sr-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.sr-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sr-subtitle {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* ---- Search ---- */
+.sr-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+  color: var(--color-text-muted);
+}
+
+.sr-search input {
+  border: none;
+  background: none;
+  flex: 1;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  outline: none;
+}
+
+/* ---- Patient Grid ---- */
+.sr-patient-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.sr-patient-card {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.sr-patient-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.sr-patient-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+
+.sr-patient-name {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.sr-patient-bed {
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.sr-patient-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.sr-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 60px;
+  color: var(--color-text-muted);
+}
+
+.sr-empty {
+  text-align: center;
+  padding: 40px;
+  color: var(--color-text-muted);
+}
+
+/* ---- Patient Profile ---- */
+.sr-patient-profile {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+
+.sr-profile-row {
+  display: flex;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 0.82rem;
+}
+
+.sr-profile-label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  min-width: 110px;
+  flex-shrink: 0;
+}
+
+.sr-profile-value {
+  color: var(--color-text);
+}
+
+/* ---- Shift Groups ---- */
+.sr-shift-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sr-shift-group {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.sr-shift-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--color-surface-hover);
+  border-bottom: 1px solid var(--color-border-light);
+  font-size: 0.85rem;
+  color: var(--color-text);
+}
+
+.sr-shift-badge {
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.sr-shift-time {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+/* ---- Sections inside shift group ---- */
+
+/* ---- Side-by-side columns ---- */
+.sr-shift-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 12px;
+}
+
+@media (max-width: 700px) {
+  .sr-shift-columns {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 8px;
+  }
+}
+
+.sr-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sr-handover-column {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.sr-progress-column {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.sr-column-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid var(--color-border-light);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.sr-handover-column .sr-column-header {
+  color: var(--color-accent-amber);
+  background: #fdfaf0;
+}
+
+.sr-progress-column .sr-column-header {
+  color: var(--color-primary);
+  background: #f0f7f0;
+}
+
+.sr-column-entries {
+  flex: 1;
+}
+
+.sr-column-empty {
+  padding: 20px 14px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* ---- Entry lines with time stamps ---- */
+.sr-entry-line {
+  display: flex;
+  gap: 6px;
+  padding: 3px 14px;
+  align-items: flex-start;
+}
+
+.sr-entry-line:hover {
+  background: var(--color-surface-hover);
+}
+
+.sr-entry-time {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  min-width: 70px;
+  flex-shrink: 0;
+  padding-top: 4px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.sr-entry-text {
+  font-family: inherit;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: var(--color-text);
+  margin: 0;
+  flex: 1;
+}
+
+/* ---- Doctor's Notes section inside progress column ---- */
+.sr-doctor-section {
+  border-top: 2px dashed var(--color-border);
+  margin: 0 14px;
+  padding: 8px 0;
+}
+
+.sr-doctor-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* ---- Empty state ---- */
+.sr-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--color-text-muted);
+  gap: 10px;
+}
+
+.sr-empty-state h3 {
+  font-size: 1rem;
+  color: var(--color-text);
+}
+
+/* ---- Tooltip ---- */
+.attribution-tooltip {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  background: var(--color-text);
+  color: white;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.attribution-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid var(--color-text);
+}
+
+.tooltip-nurse {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 3px;
+}
+
+.tooltip-role {
+  opacity: 0.7;
+  font-size: 0.7rem;
+}
+
+.tooltip-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.7;
+  font-size: 0.7rem;
+}
+
+.hover-reveal {
+  cursor: default;
+  position: relative;
+}

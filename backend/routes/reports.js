@@ -11,18 +11,33 @@ router.get('/wards', (req, res) => {
   res.json(wards);
 });
 
-// GET /api/patients?ward=ward-gw — list patients, optionally filtered by ward
-router.get('/patients', (req, res) => {
+// GET /api/rooms?ward=ward-gw — list rooms for a ward
+router.get('/rooms', (req, res) => {
   const db = getDatabase();
   const { ward } = req.query;
+  if (!ward) return res.status(400).json({ error: 'ward query parameter is required' });
+  const rooms = db.prepare(
+    'SELECT * FROM rooms WHERE ward_id = ? ORDER BY name'
+  ).all(ward);
+  res.json(rooms);
+});
+
+// GET /api/patients — list patients, optionally filtered by ward or room
+router.get('/patients', (req, res) => {
+  const db = getDatabase();
+  const { ward, room } = req.query;
   let patients;
-  if (ward) {
+  if (room) {
     patients = db.prepare(
-      'SELECT p.*, w.name as ward_name FROM patients p LEFT JOIN wards w ON p.ward_id = w.id WHERE p.ward_id = ? ORDER BY p.bed_number'
+      'SELECT p.*, w.name as ward_name, r.name as room_name FROM patients p LEFT JOIN wards w ON p.ward_id = w.id LEFT JOIN rooms r ON p.room_id = r.id WHERE p.room_id = ? ORDER BY p.bed_number'
+    ).all(room);
+  } else if (ward) {
+    patients = db.prepare(
+      'SELECT p.*, w.name as ward_name, r.name as room_name FROM patients p LEFT JOIN wards w ON p.ward_id = w.id LEFT JOIN rooms r ON p.room_id = r.id WHERE p.ward_id = ? ORDER BY r.name, p.bed_number'
     ).all(ward);
   } else {
     patients = db.prepare(
-      'SELECT p.*, w.name as ward_name FROM patients p LEFT JOIN wards w ON p.ward_id = w.id ORDER BY w.name, p.bed_number'
+      'SELECT p.*, w.name as ward_name, r.name as room_name FROM patients p LEFT JOIN wards w ON p.ward_id = w.id LEFT JOIN rooms r ON p.room_id = r.id ORDER BY w.name, r.name, p.bed_number'
     ).all();
   }
   res.json(patients);
@@ -42,10 +57,17 @@ router.get('/patients/:id/reports', (req, res) => {
   res.json(report || null);
 });
 
-// POST /api/reports — create a new report (AI-generated)
+// Determine shift label from timestamp: 07:00-18:59 = Day, 19:00-06:59 = Night
+function getShiftLabel(ts) {
+  const h = new Date(ts).getHours();
+  return (h >= 7 && h < 19) ? 'Day Shift' : 'Night Shift';
+}
+
+// POST /api/reports — create a new report (AI-generated), or append to existing shift report
 // Body: patient_id, nurse_id, transcript, report_type ('nurse' | 'doctor')
+// If append=true, appends to the latest nurse report in the same shift instead of creating new
 router.post('/reports', (req, res) => {
-  const { patient_id, nurse_id, transcript, report_type } = req.body;
+  const { patient_id, nurse_id, transcript, report_type, append } = req.body;
 
   if (!patient_id || !nurse_id || !transcript) {
     return res.status(400).json({ error: 'patient_id, nurse_id, and transcript are required' });
@@ -54,24 +76,72 @@ router.post('/reports', (req, res) => {
   const db = getDatabase();
   const type = report_type === 'doctor' ? 'doctor' : 'nurse';
 
+  // Get patient profile for progress note
+  const patientProfile = db.prepare('SELECT * FROM patients WHERE id = ?').get(patient_id) || {};
+
   // AI processing
   let handover_text = '';
   let progress_note_text = '';
 
   if (type === 'doctor') {
-    // Doctor notes — structured template
     const doctorName = req.body.doctor_name || 'Doctor';
     progress_note_text = synthesizeDoctorNote(transcript, doctorName);
     handover_text = '';
   } else {
-    // Nurse notes — both handover (integrated) + progress note
-    const result = synthesizeNurseNotes(transcript);
+    const result = synthesizeNurseNotes(transcript, patientProfile);
     handover_text = result.handover_text;
     progress_note_text = result.progress_note_text;
   }
 
   const parentReportId = req.body.parent_report_id || null;
 
+  // If append mode, try to find existing report in same shift
+  if (append && type === 'nurse') {
+    const now = new Date();
+    // Determine shift boundaries for today
+    const hour = now.getHours();
+    let shiftStart, shiftEnd;
+    if (hour >= 7 && hour < 19) {
+      // Day shift: 07:00 - 18:59
+      shiftStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 7, 0, 0);
+      shiftEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 59, 59);
+    } else if (hour >= 19) {
+      // Night shift starts today at 19:00
+      shiftStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 19, 0, 0);
+      shiftEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 6, 59, 59);
+    } else {
+      // Early morning (00:00-06:59) — belongs to previous day's night shift
+      shiftStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 19, 0, 0);
+      shiftEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 59, 59);
+    }
+
+    const existing = db.prepare(
+      `SELECT * FROM reports 
+       WHERE patient_id = ? AND report_type = 'nurse' 
+       AND timestamp >= ? AND timestamp <= ?
+       ORDER BY timestamp DESC LIMIT 1`
+    ).get(patient_id, shiftStart.toISOString(), shiftEnd.toISOString());
+
+    if (existing) {
+      // Append to existing report
+      const updatedHandover = (existing.handover_text || '') + '\n' + handover_text;
+      const updatedProgress = (existing.progress_note_text || '') + '\n' + progress_note_text;
+      db.prepare(
+        `UPDATE reports SET handover_text = ?, progress_note_text = ?, edited_by_nurse_id = ?, timestamp = CURRENT_TIMESTAMP WHERE id = ?`
+      ).run(updatedHandover.trim(), updatedProgress.trim(), nurse_id, existing.id);
+
+      const report = db.prepare(
+        `SELECT r.*, u.name as created_by_name, u.role as created_by_role 
+         FROM reports r 
+         LEFT JOIN users u ON r.created_by_nurse_id = u.id 
+         WHERE r.id = ?`
+      ).get(existing.id);
+
+      return res.json(report);
+    }
+  }
+
+  // No existing report found or not append mode — create new
   const id = uuidv4();
   const stmt = db.prepare(
     'INSERT INTO reports (id, patient_id, created_by_nurse_id, parent_report_id, report_type, handover_text, progress_note_text) VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -274,7 +344,7 @@ router.get('/patients/:id/doctor-notes', (req, res) => {
   res.json(notes);
 });
 
-// GET /api/patients/:id/consolidated — combine all reports + doctor notes for a patient
+// GET /api/patients/:id/consolidated — combine all reports + doctor notes for a patient, grouped by day
 router.get('/patients/:id/consolidated', (req, res) => {
   const db = getDatabase();
 
@@ -284,7 +354,7 @@ router.get('/patients/:id/consolidated', (req, res) => {
      FROM reports r 
      LEFT JOIN users u ON r.created_by_nurse_id = u.id 
      WHERE r.patient_id = ? AND r.report_type = 'nurse'
-     ORDER BY r.timestamp DESC`
+     ORDER BY r.timestamp ASC`
   ).all(req.params.id);
 
   // Get doctor notes for this patient
@@ -293,7 +363,7 @@ router.get('/patients/:id/consolidated', (req, res) => {
      FROM reports r 
      LEFT JOIN users u ON r.created_by_nurse_id = u.id 
      WHERE r.patient_id = ? AND r.report_type = 'doctor'
-     ORDER BY r.timestamp DESC`
+     ORDER BY r.timestamp ASC`
   ).all(req.params.id);
 
   if (reports.length === 0 && doctorNotes.length === 0) {
@@ -302,27 +372,7 @@ router.get('/patients/:id/consolidated', (req, res) => {
 
   const patient = db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id);
 
-  // Build all entries (only for nurse reports)
-  const allEntries = [];
-  reports.forEach((report) => {
-    const lines = (report.progress_note_text || '').split('\n');
-    const timestamp = new Date(report.timestamp);
-    lines.forEach((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
-      allEntries.push({
-        text: line,
-        nurseId: report.created_by_nurse_id,
-        nurseName: report.nurse_name,
-        nurseRole: report.nurse_role,
-        reportId: report.id,
-        timestamp: report.timestamp,
-        timeFormatted: timestamp.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-      });
-    });
-  });
-
-  // Group doctor notes by parent_report_id (specific report they're attached to)
+  // Group doctor notes by parent_report_id
   const doctorNotesByParent = {};
   doctorNotes.forEach(n => {
     const parentId = n.parent_report_id || 'orphan';
@@ -332,22 +382,62 @@ router.get('/patients/:id/consolidated', (req, res) => {
       doctorName: n.created_by_name,
       doctorRole: n.created_by_role,
       text: n.progress_note_text,
+      parentReportId: n.parent_report_id,
       timestamp: n.timestamp,
       timeFormatted: new Date(n.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
     });
   });
 
-  // Build combined text
+  // Build combined text and group by day
+  const dayGroups = {};
   let combinedText = '';
+
   reports.forEach((report) => {
-    combinedText += `--- Entry by ${report.nurse_name} (${report.nurse_role}) at ${new Date(report.timestamp).toLocaleString()} ---\n${report.progress_note_text}\n\n`;
-    const attachedNotes = doctorNotesByParent[report.id] || [];
-    attachedNotes.forEach(n => {
-      combinedText += `--- Doctor's Note by ${n.doctorName} at ${n.timeFormatted} ---\n${n.text}\n\n`;
+    const dateKey = new Date(report.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    if (!dayGroups[dateKey]) dayGroups[dateKey] = [];
+
+    const entry = {
+      id: report.id,
+      nurse_name: report.nurse_name,
+      nurse_role: report.nurse_role,
+      created_by_nurse_id: report.created_by_nurse_id,
+      timestamp: report.timestamp,
+      report_type: 'nurse',
+      handover_text: report.handover_text,
+      progress_note_text: report.progress_note_text,
+      doctorNotes: doctorNotesByParent[report.id] || [],
+    };
+
+    dayGroups[dateKey].push(entry);
+    combinedText += `--- ${dateKey} | ${report.nurse_name} (${report.nurse_role}) at ${new Date(report.timestamp).toLocaleString()} ---\n${report.progress_note_text}\n\n`;
+  });
+
+  // Attach orphan doctor notes to the day of the last report, or their own day
+  const orphanNotes = doctorNotes.filter(n => !reports.some(r => r.id === n.parent_report_id));
+  orphanNotes.forEach(n => {
+    const dateKey = new Date(n.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    if (!dayGroups[dateKey]) dayGroups[dateKey] = [];
+    dayGroups[dateKey].push({
+      id: n.id,
+      nurse_name: n.created_by_name,
+      nurse_role: n.created_by_role,
+      created_by_nurse_id: n.created_by_nurse_id,
+      timestamp: n.timestamp,
+      report_type: 'doctor',
+      handover_text: null,
+      progress_note_text: null,
+      doctorNotes: [{
+        id: n.id,
+        doctorName: n.created_by_name,
+        doctorRole: n.created_by_role,
+        text: n.progress_note_text,
+        parentReportId: n.parent_report_id,
+        timestamp: n.timestamp,
+        timeFormatted: new Date(n.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      }],
     });
   });
 
-  // Calculate unique nurses (including doctors who wrote notes)
   const allNurses = [...new Set(reports.map(r => r.nurse_name))];
   const allDoctors = [...new Set(doctorNotes.map(n => n.created_by_name))];
 
@@ -358,21 +448,147 @@ router.get('/patients/:id/consolidated', (req, res) => {
     doctorCount: allDoctors.length,
     nurses: allNurses,
     doctors: allDoctors,
-    allEntries,
     combinedText: combinedText.trim(),
-    reports: reports.map(r => ({
-      id: r.id,
-      nurse_name: r.nurse_name,
-      nurse_role: r.nurse_role,
-      created_by_nurse_id: r.created_by_nurse_id,
-      timestamp: r.timestamp,
-      handover_text: r.handover_text,
-      progress_note_text: r.progress_note_text,
-      // Include doctor notes attached to this nurse
-      doctorNotes: doctorNotesByParent[r.id] || [],
+    dayGroups: Object.entries(dayGroups).map(([dateKey, entries]) => ({
+      date: dateKey,
+      entries,
     })),
-    // Unattached doctor notes
-    orphanDoctorNotes: doctorNotes.filter(n => !reports.some(r => r.id === n.parent_report_id)),
+  });
+});
+
+// GET /api/patients/:id/shift-reports — reports grouped by day+shift, handover + progress combined
+router.get('/patients/:id/shift-reports', (req, res) => {
+  const db = getDatabase();
+
+  const reports = db.prepare(
+    `SELECT r.*, u.name as nurse_name, u.role as nurse_role, u.shift as nurse_shift
+     FROM reports r 
+     LEFT JOIN users u ON r.created_by_nurse_id = u.id 
+     WHERE r.patient_id = ? AND r.report_type = 'nurse'
+     ORDER BY r.timestamp ASC`
+  ).all(req.params.id);
+
+  const doctorNotes = db.prepare(
+    `SELECT r.*, u.name as created_by_name, u.role as created_by_role
+     FROM reports r 
+     LEFT JOIN users u ON r.created_by_nurse_id = u.id 
+     WHERE r.patient_id = ? AND r.report_type = 'doctor'
+     ORDER BY r.timestamp ASC`
+  ).all(req.params.id);
+
+  if (reports.length === 0 && doctorNotes.length === 0) {
+    return res.status(404).json({ error: 'No reports found for this patient' });
+  }
+
+  const patient = db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id);
+
+  // Determine shift label from timestamp: 07:00-18:59 = Day, 19:00-06:59 = Night
+  function getShiftLabel(ts) {
+    const h = new Date(ts).getHours();
+    return (h >= 7 && h < 19) ? 'Day Shift' : 'Night Shift';
+  }
+
+  // Group by day+shift key
+  const shiftGroups = {};
+  reports.forEach(r => {
+    const d = new Date(r.timestamp);
+    const dayKey = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const shift = getShiftLabel(r.timestamp);
+    const groupKey = dayKey + '|' + shift;
+    if (!shiftGroups[groupKey]) {
+      shiftGroups[groupKey] = {
+        date: dayKey,
+        shift,
+        timeFormatted: d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        handoverEntries: [],
+        progressEntries: [],
+        doctorEntries: [],
+      };
+    }
+    // Collect nurse info for each line in handover and progress
+    const handoverLines = (r.handover_text || '').split('\n').filter(l => l.trim());
+    handoverLines.forEach(line => {
+      shiftGroups[groupKey].handoverEntries.push({
+        text: line,
+        nurseName: r.nurse_name,
+        nurseRole: r.nurse_role,
+        timestamp: r.timestamp,
+        timeFormatted: new Date(r.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      });
+    });
+    const progressLines = (r.progress_note_text || '').split('\n').filter(l => l.trim());
+    progressLines.forEach(line => {
+      shiftGroups[groupKey].progressEntries.push({
+        text: line,
+        nurseName: r.nurse_name,
+        nurseRole: r.nurse_role,
+        timestamp: r.timestamp,
+        timeFormatted: new Date(r.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      });
+    });
+  });
+
+  // Group doctor notes by parent report and attach
+  const doctorNotesByParent = {};
+  doctorNotes.forEach(n => {
+    const parentId = n.parent_report_id || 'orphan';
+    if (!doctorNotesByParent[parentId]) doctorNotesByParent[parentId] = [];
+    doctorNotesByParent[parentId].push({
+      id: n.id,
+      doctorName: n.created_by_name,
+      doctorRole: n.created_by_role,
+      text: n.progress_note_text,
+      parentReportId: n.parent_report_id,
+      timestamp: n.timestamp,
+      timeFormatted: new Date(n.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    });
+  });
+
+  // Attach doctor notes to their parent report's shift group
+  const orphanDoctorEntries = [];
+  Object.values(shiftGroups).forEach(group => {
+    // Find which report IDs are in this group — we need to map back
+  });
+
+  // Add doctor notes as separate doctorEntries in each shift group
+  doctorNotes.forEach(n => {
+    const d = new Date(n.timestamp);
+    const dayKey = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const shift = getShiftLabel(n.timestamp);
+    const groupKey = dayKey + '|' + shift;
+    if (!shiftGroups[groupKey]) {
+      shiftGroups[groupKey] = {
+        date: dayKey,
+        shift,
+        timeFormatted: d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        handoverEntries: [],
+        progressEntries: [],
+        doctorEntries: [],
+      };
+    }
+    if (!shiftGroups[groupKey].doctorEntries) shiftGroups[groupKey].doctorEntries = [];
+    shiftGroups[groupKey].doctorEntries.push({
+      text: n.progress_note_text,
+      doctorName: n.created_by_name,
+      doctorRole: n.created_by_role,
+      timestamp: n.timestamp,
+      timeFormatted: new Date(n.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    });
+  });
+
+  const result = Object.entries(shiftGroups).map(([key, group]) => ({
+    date: group.date,
+    shift: group.shift,
+    timeFormatted: group.timeFormatted,
+    handoverEntries: group.handoverEntries,
+    progressEntries: group.progressEntries,
+    doctorEntries: group.doctorEntries || [],
+  }));
+
+  res.json({
+    patient,
+    shiftGroups: result,
+    totalReports: reports.length + doctorNotes.length,
   });
 });
 
@@ -391,7 +607,7 @@ function generatePassingSummary(transcript) {
 }
 
 /** Synthesize a doctor's progress note using structured template
- *  Template: Date/time | Seen by Dr___. Noted patient's vital signs/condition.
+ *  Format: Date/time | Seen by Dr___. Noted patient's vital signs/condition.
  *  Investigations reviewed (if any). Ordered for (orders). Commenced on (meds).
  *  The rest continue same.
  */
@@ -408,7 +624,6 @@ function synthesizeDoctorNote(transcript, doctorName) {
   const spo2 = (t.match(/(?:spo2|o2 sat|sats)\s*(?:is|of|:)?\s*(\d{2,3})/i) || [])[1];
   const temp = (t.match(/(?:temp|temperature)\s*(?:is|of|:)?\s*(\d{2}\.?1?\d*\s*°?c?)/i) || [])[1];
 
-  // Build vital signs string
   let vitalsStr = '';
   if (bp) vitalsStr += `BP ${bp}`;
   if (hr) vitalsStr += (vitalsStr ? ', ' : '') + `HR ${hr}`;
@@ -416,33 +631,30 @@ function synthesizeDoctorNote(transcript, doctorName) {
   if (temp) vitalsStr += (vitalsStr ? ', ' : '') + `Temp ${temp}°C`;
   const hasVitals = !!vitalsStr;
 
-  // Extract condition / complaint (single sentence)
+  // Extract condition / complaint
   const complaintMatch = t.match(/(?:complaint?|complain|condition|presented with|c\/o|complains of)\s*[^.!?]*/i);
   let conditionText = '';
   if (complaintMatch) {
     conditionText = complaintMatch[0].trim();
   } else {
     conditionText = (t.split(/\.\s|\.$/)[0] || '').trim();
-    // Remove "Patient" prefix for cleaner output
     conditionText = conditionText.replace(/^(Patient\s+)?(was\s+|is\s+|has\s+)?/i, '').trim();
   }
 
-  // Extract investigations reviewed (one sentence only, stop at period)
+  // Extract investigations reviewed
   let investStr = '';
-  const investRegex = /(?:investigation|lab\s*(?:result|work|test)?|blood\s*(?:test|work|result)?(?!\s+pressure)|ct\s+scan|mri|ecg|result(?!ing|s\s+of)|scan|test\s*(?:result)?|fbc|U\/E|U&E|crp)\s*[^.]*/gi;
+  const investRegex = /(?:investigation|lab\s*(?:result|work|test)?|blood\s*(?:test|work|result)?(?!\s+pressure)|ct\s+scan|mri|ecg|result(?!ing|s\s+of)|scan|test\s*(?:result)?|fbc|U\/E|U&E|crp|xray|x-ray)\s*[^.]*/gi;
   const investMatches = [...t.matchAll(investRegex)];
   if (investMatches.length > 0) {
     const unique = [...new Set(investMatches.map(m => m[0].trim()))];
     investStr = unique.slice(0, 2).join('; ');
   }
 
-  // Extract doctor's orders - capture until sentence-ending period (but not mid-word periods like "x-ray")
+  // Extract doctor's orders
   let ordersStr = '';
-  // First try to find text after "Ordered for" - use a smarter approach
   const orderIdx = lower.indexOf('ordered for');
   if (orderIdx >= 0) {
     const after = t.substring(orderIdx + 'ordered for'.length).trim();
-    // Find the next sentence-ending period (period followed by space or end of string)
     const periodIdx = after.search(/\.\s|\.$/);
     ordersStr = periodIdx >= 0 ? after.substring(0, periodIdx) : after;
   }
@@ -461,27 +673,30 @@ function synthesizeDoctorNote(transcript, doctorName) {
   // Detect "continue same" / no change
   const contSame = /continue\s+same|cont\s+same|no\s+change|same\s+as\s+before|unchanged/i.test(t);
 
+  // Clean doctor name
+  const cleanName = doctorName.replace(/^(Dr\.?\s*)+/i, '').trim();
+
   // --- Build the note using the template ---
   let note = '';
 
   // 1. Date/Time header
   note += `${dateStr} ${timeStr}\n`;
 
-  // 2. Seen by Dr. (avoid double "Dr." if name already includes it)
-  const cleanName = doctorName.replace(/^(Dr\.?\s*)+/i, '').trim();
+  // 2. Seen by Dr.
   note += `Had seen by Dr. ${cleanName}. `;
 
   // 3. Noted patient's vital signs / condition / complaint
+  const cleanCondition = conditionText.replace(/^(patient\s+)?(is\s+|was\s+|has\s+)?(complaint\s*:?\s*)?/i, '').trim();
   if (hasVitals) {
-    note += `Noted patient's ${vitalsStr} — ${conditionText}. `;
+    note += `Noted patient's ${vitalsStr} — ${cleanCondition.charAt(0).toUpperCase() + cleanCondition.slice(1)}. `;
   } else {
-    const capCondition = conditionText.charAt(0).toUpperCase() + conditionText.slice(1);
-    note += `${capCondition}. `;
+    note += `${cleanCondition.charAt(0).toUpperCase() + cleanCondition.slice(1)}. `;
   }
 
   // 4. Investigations reviewed
   if (investStr) {
-    note += `Investigations reviewed: ${investStr}. `;
+    const cleanInvest = investStr.replace(/^(investigations?\s+reviewed\s*:?\s*)/i, '').trim();
+    note += `Investigations reviewed: ${cleanInvest}. `;
   }
 
   // 5. Ordered for
@@ -498,7 +713,6 @@ function synthesizeDoctorNote(transcript, doctorName) {
   if (contSame || (!ordersStr && !medsStr && lower.includes('cont')) || /cont\s+same/i.test(t)) {
     note += `The rest continue same.`;
   } else if (!ordersStr && !medsStr && !investStr && !contSame) {
-    // Nothing specific extracted - check if doctor said "continue same"
     if (!/same|continue|cont/i.test(t)) {
       note += `The rest continue same.`;
     }
@@ -509,13 +723,13 @@ function synthesizeDoctorNote(transcript, doctorName) {
 
 /**
  * AI Synthesis Engine — transforms raw transcript into structured nursing notes
- * Extracts clinical data points, medications, vital signs, notifications, and actions
+ * - Handover Report: Short, informal, task-focused (no emojis)
+ * - Progress Note: Chronological narrative format
  */
-function synthesizeNurseNotes(transcript) {
+function synthesizeNurseNotes(transcript, patientProfile) {
   const t = transcript.trim();
   const lower = t.toLowerCase();
-
-  // --- Extract structured data points from raw text ---
+  const profile = patientProfile || {};
 
   const timeMatch = t.match(/(\d{1,2}:\d{2}\s*(?:am|pm)?)/gi);
   const times = timeMatch ? timeMatch.map(m => m.trim()) : [];
@@ -531,139 +745,105 @@ function synthesizeNurseNotes(transcript) {
   const tempMatch = lower.match(/(?:temp|temperature|fever)\s*(?:is|of|:)?\s*(\d{2}\.?\d*\s*°?c?)/i);
   if (tempMatch) vitals.push(`Temp ${tempMatch[1]}°C`);
 
-  // Extract medications
-  const meds = [];
-  const medMatches = t.matchAll(/(\w+)\s*(?:given|administered|prescribed|taken)\s*(?:\w+\s+){0,3}?(\d+\s*(?:mg|mcg|g|ml|units|tablets?|puffs?))?/gi);
-  for (const m of medMatches) {
-    meds.push(`${m[1]}${m[2] ? ' ' + m[2] : ''}`);
+  // Extract medications administered
+  const medsGiven = [];
+  const medRegex = /(\w+(?:\s+\w+)?)\s+(given|administered|received)\s+(?:\w+\s+){0,4}?(\d+\s*(?:mg|mcg|g|ml|units|tablets?|puffs?))?/gi;
+  let medMatch;
+  while ((medMatch = medRegex.exec(t)) !== null) {
+    medsGiven.push(`${medMatch[1].trim()} ${medMatch[3] || ''}`.trim());
+  }
+  const doseRegex = /(\w+)\s+(\d+\s*(?:mg|mcg|g|ml|units?))\s+(\w+)\s+(?:at|given|administered|at|at around)?\s*(\d{3,4})?/gi;
+  while ((medMatch = doseRegex.exec(t)) !== null) {
+    medsGiven.push(`${medMatch[1]} ${medMatch[2]} ${medMatch[3]}${medMatch[4] ? ' at ' + medMatch[4] : ''}`);
   }
 
   // Detect clinical categories
-  const hasNeuro = /conscious|alert|confused|drowsy|gcs|avpu/i.test(t);
-  const hasResp = /breath|o2|oxygen|spo2|resp|ventilat|nebuliser/i.test(t);
-  const hasCardio = /heart|hr|bp|blood pressure|pulse|ecg|chest pain|palpitat/i.test(t);
-  const hasPain = /pain|ache|discomfort|analgesia|prn/i.test(t);
-  const hasMobility = /mobil|walk|ambulat|bed|transfer|fall|fell|unsteady|stumble/i.test(t);
-  const hasGI = /bowel|nausea|vomit|diet|feed|appetite|constipat|diarrhoea|stoma/i.test(t);
-  const hasGU = /urine|catheter|output|renal|kidney|incontine/i.test(t);
-  const hasSkin = /wound|skin|dressing|pressure|breakdown|ulcer|sore|tear/i.test(t);
-  const hasMeds = /medication|given|administer|tablet|dose|prescribed|pm|prn|IV|oral/i.test(t);
-  const hasLabs = /lab|blood|fbc|fbe|ue|troponin|result|test|swab|culture|hgt|glucose/i.test(t);
-  const hasFall = /fall|fell|collapse|trip|slip|lift|assist/i.test(t);
+  const hasFall = /fall|fell|collapse|trip|slip|unsteady|stumble/i.test(t);
   const hasNotify = /notif|inform|call|page|doctor|dr\.|consult|review/i.test(t);
-  const hasFamily = /family|wife|husband|son|daughter|relatives|cousin|next of kin/i.test(t);
-  const hasEvent = /event|incident|happened|occurred|occur/i.test(t);
+  const hasPain = /pain|ache|discomfort|headache|analgesia|prn/i.test(t);
+  const hasMeds = /medication|given|administer|tablet|dose|prescribed|pm|prn|IV|oral/i.test(t);
+  const hasWound = /wound|dressing|skin|ulcer|surgical|incision|pressure|sore|tear|bandage|suture/i.test(t);
 
   const vitalsStr = vitals.length > 0 ? vitals.join(', ') : 'See chart';
 
-  // --- Build Handover Report (short, informal, task-focused for shift change) ---
+  // ================================================================
+  // A. HANDOVER REPORT — Short, informal, task-focused (no emojis)
+  // ================================================================
   const h = [];
 
-  // Extract bed/patient reference
-  const bedMatch = t.match(/bed\s*(\d+)/i);
-  const bedRef = bedMatch ? `Bed ${bedMatch[1]}` : extractPatientRef(t);
-
-  // Build concise handover notes (split on sentence period+space, not decimal points)
   const sentences = t.replace(/\.\s+/g, '•').split(/[!?\n]/).flatMap(s => s.split('•')).filter(s => s.trim()).map(s => s.trim());
-  const clinicalPoints = [];
 
   sentences.forEach(s => {
     const lowerS = s.toLowerCase();
-    const timeIn = s.match(/(\d{1,2}:\d{2}\s*(?:am|pm)?)/i);
-    const timePrefix = timeIn ? timeIn[1] + ' ' : '';
-
-    if (/fall|fell|collapse|trip|slip/i.test(lowerS)) {
-      clinicalPoints.push(`${timePrefix}⚠️ ${s}`);
-    } else if (/pain|ache|discomfort|headache/i.test(lowerS)) {
-      clinicalPoints.push(`${timePrefix}💊 ${s}`);
-    } else if (/bp|hr|spo2|vital|blood press|temp/i.test(lowerS)) {
-      clinicalPoints.push(`${timePrefix}📊 ${s}`);
-    } else if (/medication|given|administer|paracetamol|panadol|antibiotic|morphine|iv/i.test(lowerS)) {
-      clinicalPoints.push(`${timePrefix}💊 ${s}`);
-    } else if (/wound|dressing|skin|ulcer|surgical|incision/i.test(lowerS)) {
-      clinicalPoints.push(`${timePrefix}🩹 ${s}`);
-    } else if (/family|wife|husband|daughter|son|relatives|next of kin/i.test(lowerS)) {
-      clinicalPoints.push(`${timePrefix}👨‍👩‍👧 ${s}`);
-    } else if (/doctor|dr\.|notif|call|page|consult|review/i.test(lowerS)) {
-      clinicalPoints.push(`${timePrefix}📞 ${s}`);
-    } else if (/nausea|vomit|bowel|diet|feed|appetite|abdominal/i.test(lowerS)) {
-      clinicalPoints.push(`${timePrefix}🍽️ ${s}`);
-    } else if (/urine|catheter|output|renal/i.test(lowerS)) {
-      clinicalPoints.push(`${timePrefix}🫘 ${s}`);
-    } else if (/conscious|alert|confused|drowsy|gcs|neuro/i.test(lowerS)) {
-      clinicalPoints.push(`${timePrefix}🧠 ${s}`);
-    } else if (/o2|oxygen|breath|resp|nebuliser|ventilat/i.test(lowerS)) {
-      clinicalPoints.push(`${timePrefix}🫁 ${s}`);
-    } else if (/mobil|walk|ambulat|transfer|exercise|deep breath/i.test(lowerS)) {
-      clinicalPoints.push(`${timePrefix}🛏️ ${s}`);
-    } else if (/encourage|monitor|reassess|check|observe|watch/i.test(lowerS)) {
-      clinicalPoints.push(`${timePrefix}📝 ${s}`);
-    } else {
-      // Plain text - use as-is
-      clinicalPoints.push(`${timePrefix}${s}`);
-    }
+    const timeIn = s.match(/(\d{1,2}:\d{2}\s*(?:am|pm)?|\d{3,4}\s*(?:hrs?)?)/i);
+    const timePrefix = timeIn ? '[' + timeIn[1] + '] ' : '';
+    h.push(`${timePrefix}${s.charAt(0).toUpperCase() + s.slice(1)}`);
   });
 
-  // Format: short lines, no bullet prefixes for plain text
-  clinicalPoints.forEach(pt => h.push(pt));
-
-  // Add pending items if not already in the text
-  if (!/pending|to do|follow|due|scheduled/i.test(t)) {
-    h.push(``);
-    if (hasFall) h.push(`⚠️ Bed alarm on. Assist with all mobility.`);
-    if (hasPain) h.push(`💊 Monitor pain. PRN analgesia available.`);
-    if (vitals.length > 0) h.push(`📊 Monitor vitals.`);
-    if (hasNotify) h.push(`📞 Medical review pending.`);
+  // Add pending/task items if not already mentioned
+  if (!/pending|to do|follow up|due|scheduled/i.test(t)) {
+    if (hasFall) h.push(`Bed alarm ON. Assist with all transfers.`);
+    if (hasPain) h.push(`Continue to monitor pain. PRN analgesia available.`);
+    if (vitals.length > 0) h.push(`Continue vital signs monitoring.`);
+    if (hasNotify) h.push(`Medical review pending.`);
   }
 
-  // --- Build Progress Note (chronological, professional, objective) ---
+  // ================================================================
+  // B. PROGRESS NOTE — Chronological narrative format
+  // ================================================================
   const p = [];
 
-  // Use first time mentioned or current time
-  const entryTime = times.length > 0 ? times[0] : new Date().toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit' }) + ' hrs';
+  // Entry time
+  const entryTime = times.length > 0
+    ? times[0]
+    : new Date().toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit' }) + ' hrs';
 
-  // Chronological entry
-  p.push(`${entryTime}:`);
-
-  // Build narrative from transcript
-  // Split on sentence-ending punctuation followed by space (not decimal points in numbers)
+  // Chronological narrative
   const progSentences = t.replace(/\.\s+/g, '•').split(/[!?\n]/).flatMap(s => s.split('•')).filter(s => s.trim()).map(s => s.trim());
   const narrative = [];
 
   progSentences.forEach(s => {
     const lowerS = s.toLowerCase();
+    const timeIn = s.match(/(\d{1,2}:\d{2}\s*(?:am|pm)?|\d{3,4}\s*(?:hrs?)?)/i);
+    const timePrefix = timeIn ? timeIn[1] + ' hrs: ' : entryTime + ': ';
+
     if (/pain|ache|discomfort|headache|abdomen|nausea|vomit|cramp/i.test(lowerS)) {
-      narrative.push(`Patient complained of ${s.replace(/patient\s+/i, '').toLowerCase().trim()}.`);
+      let cleaned = s.replace(/^(Patient\s+)?(was\s+|is\s+|has\s+)?/i, '').trim();
+      if (/^complained\s+of/i.test(cleaned)) {
+        narrative.push(`${timePrefix}Patient ${cleaned.toLowerCase()}.`);
+      } else {
+        narrative.push(`${timePrefix}Patient complained of ${cleaned.toLowerCase()}.`);
+      }
     } else if (/bp|blood press|hr|heart rate|spo2|temp|vitals|obs/i.test(lowerS)) {
-      narrative.push(`Vital signs assessed: ${s}.`);
-    } else if (/given|administer|received|paracetamol|panadol|morphine|antibiotic|iv|oral|tablet|medication/i.test(lowerS)) {
-      narrative.push(`${s}. Patient tolerated medication well.`);
+      narrative.push(`${timePrefix}Vital signs assessed: ${s}.`);
+    } else if (/(?:paracetamol|panadol|morphine|antibiotic|ceftriaxone|amoxicillin|ibuprofen|aspirin|insulin|heparin|furosemide|omeprazole|metformin|amlodipine|atorvastatin)\s|(?:given|administered|received)\s+(?:\w+\s+){0,3}(?:mg|mcg|g|ml|units|tablet|dose)/i.test(lowerS)) {
+      narrative.push(`${timePrefix}${s.charAt(0).toUpperCase() + s.slice(1)}. Patient tolerated well.`);
     } else if (/fall|fell|collapse|trip|slip/i.test(lowerS)) {
-      narrative.push(`Patient found ${s.replace(/patient\s+/i, '').toLowerCase().trim()}. Assessed for injury. No visible injury noted. Assisted back to bed. Bed alarm applied.`);
+      narrative.push(`${timePrefix}Patient found ${s.replace(/patient\s+/i, '').toLowerCase().trim()}. Assessed for injury. No visible injury noted. Assisted back to bed. Bed alarm applied.`);
     } else if (/wound|dressing|surgical|incision|skin|ulcer|pressure|suture|bandage/i.test(lowerS)) {
-      narrative.push(`Wound assessed: ${s}. Dressing noted to be clean, dry, and intact.`);
+      narrative.push(`${timePrefix}Wound assessed: ${s}. Dressing noted to be clean, dry, and intact.`);
     } else if (/doctor|dr\.|notif|call|page|inform|consult|review/i.test(lowerS)) {
-      narrative.push(`${s}. Medical team notified of findings.`);
+      narrative.push(`${timePrefix}${s}. Medical team notified of findings.`);
     } else if (/family|wife|husband|daughter|son|relatives|next of kin/i.test(lowerS)) {
-      narrative.push(`Family updated: ${s}.`);
+      narrative.push(`${timePrefix}Family updated: ${s}.`);
     } else if (/o2|oxygen|breath|resp|nebuliser|ventilat|spo2/i.test(lowerS)) {
-      narrative.push(`Respiratory assessment: ${s}.`);
+      narrative.push(`${timePrefix}Respiratory assessment: ${s}.`);
     } else if (/mobil|walk|ambulat|transfer|exercise|deep breath|physio|move/i.test(lowerS)) {
-      narrative.push(`Patient mobilised: ${s}. Encouraged deep breathing exercises and ambulation.`);
+      narrative.push(`${timePrefix}Patient mobilised: ${s}. Encouraged deep breathing exercises and ambulation.`);
     } else if (/conscious|alert|confused|drowsy|gcs|neuro|avpu|responsive/i.test(lowerS)) {
-      narrative.push(`Neurological assessment: ${s}.`);
+      narrative.push(`${timePrefix}Neurological assessment: ${s}.`);
     } else if (/urine|catheter|output|renal|incontine|toilet|bathroom/i.test(lowerS)) {
-      narrative.push(`Genitourinary assessment: ${s}.`);
+      narrative.push(`${timePrefix}Genitourinary assessment: ${s}.`);
     } else if (/diet|feed|eat|drink|appetite|fluid.*intake|hydrat/i.test(lowerS)) {
-      narrative.push(`Encouraged oral intake and hydration: ${s}.`);
+      narrative.push(`${timePrefix}Encouraged oral intake and hydration: ${s}.`);
     } else if (/lab|blood|test|result|fbc|ue|troponin|swab|culture|xray|x-ray|scan|ecg/i.test(lowerS)) {
-      narrative.push(`Investigations reviewed: ${s}.`);
+      narrative.push(`${timePrefix}Investigations reviewed: ${s}.`);
     } else {
-      narrative.push(`${s}.`);
+      narrative.push(`${timePrefix}${s}.`);
     }
   });
 
-  // Deduplicate and write narrative
+  // Deduplicate
   const seen = new Set();
   narrative.forEach(line => {
     const key = line.toLowerCase().trim();
@@ -683,7 +863,6 @@ function synthesizeNurseNotes(transcript) {
   if (hasPain) planItems.push('Monitor pain. PRN analgesia available as ordered.');
   if (vitals.length > 0) planItems.push('Continue vital signs monitoring per protocol.');
   if (hasMeds) planItems.push('Medications administered as prescribed.');
-  if (hasLabs) planItems.push('Follow up on pending investigation results.');
   if (hasNotify) planItems.push('Notify medical team if any changes.');
   planItems.push('Encourage mobility and deep breathing exercises.');
   planItems.push('Reassess next shift.');
