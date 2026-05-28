@@ -1,7 +1,7 @@
 @echo off
-title WardScribe — Nursing Documentation System
+title WardScribe - Nursing Documentation System
 echo ========================================
-echo  WardScribe — Starting Servers
+echo  WardScribe - Starting Servers
 echo ========================================
 echo.
 echo Starting Backend (port 3001)...

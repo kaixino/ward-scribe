@@ -48,6 +48,44 @@ A full-stack web application for transforming raw nurse audio transcriptions int
 - Node.js 18+
 - npm
 
+#### Installing Node.js & npm
+
+**Windows**
+
+1. Download the LTS installer from [nodejs.org](https://nodejs.org/)
+2. Run the `.msi` installer — accept the defaults (npm is included)
+3. Alternatively, using winget:
+   ```powershell
+   winget install OpenJS.NodeJS.LTS
+   ```
+
+**Linux (Ubuntu/Debian)**
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+**Linux (any distro, via nvm)**
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+# Restart your terminal, then:
+nvm install 20
+nvm use 20
+```
+
+Verify installation on either platform:
+```bash
+node --version   # should be 18+
+npm --version
+```
+
+### Install Dependencies (first time only)
+
+```bash
+cd backend && npm install
+cd ../frontend && npm install
+```
+
 ### Quick Start (One Click)
 
 **Double-click** `start.bat` in the project folder — it opens two terminal windows:
@@ -78,13 +116,6 @@ The servers stop when you close the terminal windows. Simply re-run one of the m
 |-----------|--------------------------|------|
 | Frontend  | http://localhost:5173     | 5173 |
 | Backend   | http://localhost:3001     | 3001 |
-
-### Install Dependencies (first time only)
-
-```bash
-cd backend && npm install
-cd ../frontend && npm install
-```
 
 ## API Endpoints
 
