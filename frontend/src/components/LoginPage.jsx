@@ -121,7 +121,13 @@ export default function LoginPage({ onLogin }) {
 
           <div className="login-hint">
             <p>Demo credentials:</p>
-            <code>sarah.chen</code> / <code>nurse123</code>
+            <div className="demo-creds">
+              <div><code>sarah.chen</code> / <code>nurse123</code> <span className="cred-role">(RN, General Ward)</span></div>
+              <div><code>james.r</code> / <code>nurse123</code> <span className="cred-role">(RN, Night, ICU)</span></div>
+              <div><code>emily.w</code> / <code>nurse123</code> <span className="cred-role">(CN, General Ward)</span></div>
+              <div><code>michael.o</code> / <code>doctor123</code> <span className="cred-role">(Medical Officer)</span></div>
+              <div><code>sarah.l</code> / <code>doctor123</code> <span className="cred-role">(Consultant, ICU)</span></div>
+            </div>
           </div>
         </form>
       </div>

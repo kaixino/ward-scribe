@@ -166,6 +166,22 @@
   color: var(--color-text-secondary);
 }
 
+.login-hint .demo-creds {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 6px;
+}
+
+.login-hint .demo-creds div {
+  line-height: 1.6;
+}
+
+.login-hint .cred-role {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
 .login-btn {
   width: 100%;
   justify-content: center;
