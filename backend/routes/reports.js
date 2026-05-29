@@ -95,53 +95,9 @@ router.post('/reports', (req, res) => {
 
   const parentReportId = req.body.parent_report_id || null;
 
-  // If append mode, try to find existing report in same shift
-  if (append && type === 'nurse') {
-    const now = new Date();
-    // Determine shift boundaries for today
-    const hour = now.getHours();
-    let shiftStart, shiftEnd;
-    if (hour >= 7 && hour < 19) {
-      // Day shift: 07:00 - 18:59
-      shiftStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 7, 0, 0);
-      shiftEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 59, 59);
-    } else if (hour >= 19) {
-      // Night shift starts today at 19:00
-      shiftStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 19, 0, 0);
-      shiftEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 6, 59, 59);
-    } else {
-      // Early morning (00:00-06:59) — belongs to previous day's night shift
-      shiftStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 19, 0, 0);
-      shiftEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 59, 59);
-    }
-
-    const existing = db.prepare(
-      `SELECT * FROM reports 
-       WHERE patient_id = ? AND report_type = 'nurse' 
-       AND timestamp >= ? AND timestamp <= ?
-       ORDER BY timestamp DESC LIMIT 1`
-    ).get(patient_id, shiftStart.toISOString(), shiftEnd.toISOString());
-
-    if (existing) {
-      // Append to existing report
-      const updatedHandover = (existing.handover_text || '') + '\n' + handover_text;
-      const updatedProgress = (existing.progress_note_text || '') + '\n' + progress_note_text;
-      db.prepare(
-        `UPDATE reports SET handover_text = ?, progress_note_text = ?, edited_by_nurse_id = ?, timestamp = CURRENT_TIMESTAMP WHERE id = ?`
-      ).run(updatedHandover.trim(), updatedProgress.trim(), nurse_id, existing.id);
-
-      const report = db.prepare(
-        `SELECT r.*, u.name as created_by_name, u.role as created_by_role 
-         FROM reports r 
-         LEFT JOIN users u ON r.created_by_nurse_id = u.id 
-         WHERE r.id = ?`
-      ).get(existing.id);
-
-      return res.json(report);
-    }
-  }
-
-  // No existing report found or not append mode — create new
+  // Each nurse gets their own report so every line is correctly attributed to them.
+  // The shift-reports view (All Patient Reports) combines entries by shift+day
+  // and preserves per-line nurse attribution via each report's created_by_nurse_id.
   const id = uuidv4();
   const stmt = db.prepare(
     'INSERT INTO reports (id, patient_id, created_by_nurse_id, parent_report_id, report_type, handover_text, progress_note_text) VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -709,13 +665,9 @@ function synthesizeDoctorNote(transcript, doctorName) {
     note += `Commenced on ${medsStr}. `;
   }
 
-  // 7. The rest continue same
-  if (contSame || (!ordersStr && !medsStr && lower.includes('cont')) || /cont\s+same/i.test(t)) {
+  // 7. The rest continue same — only if doctor actually said it
+  if (/continue\s+same|cont\s+same/i.test(t)) {
     note += `The rest continue same.`;
-  } else if (!ordersStr && !medsStr && !investStr && !contSame) {
-    if (!/same|continue|cont/i.test(t)) {
-      note += `The rest continue same.`;
-    }
   }
 
   return note;
@@ -723,153 +675,79 @@ function synthesizeDoctorNote(transcript, doctorName) {
 
 /**
  * AI Synthesis Engine — transforms raw transcript into structured nursing notes
- * - Handover Report: Short, informal, task-focused (no emojis)
- * - Progress Note: Chronological narrative format
+ * - Handover Report: Short, informal sentences (no emojis).
+ * - Progress Note: Clinical narrative with one timestamp per block.
  */
 function synthesizeNurseNotes(transcript, patientProfile) {
   const t = transcript.trim();
   const lower = t.toLowerCase();
-  const profile = patientProfile || {};
 
-  const timeMatch = t.match(/(\d{1,2}:\d{2}\s*(?:am|pm)?)/gi);
-  const times = timeMatch ? timeMatch.map(m => m.trim()) : [];
+  // Extract any time mentioned in the transcript
+  const firstTime = (t.match(/(\d{1,2}:\d{2}\s*(?:am|pm)?)/i) || [])[1];
+  const recordingTime = firstTime ||
+    new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kuala_Lumpur' }) + ' hrs';
 
-  // Extract vital signs
-  const vitals = [];
-  const bpMatch = lower.match(/(?:bp|blood pressure)\s*(?:is|of|:)?\s*(\d{2,3}\s*\/\s*\d{2,3})/i);
-  if (bpMatch) vitals.push(`BP ${bpMatch[1]}`);
-  const hrMatch = lower.match(/(?:hr|heart rate|pulse)\s*(?:is|of|:)?\s*(\d{2,3})/i);
-  if (hrMatch) vitals.push(`HR ${hrMatch[1]}`);
-  const spo2Match = lower.match(/(?:spo2|o2 sat|oxygen sat|sats)\s*(?:is|of|:)?\s*(\d{2,3})\s*%?/i);
-  if (spo2Match) vitals.push(`SpO2 ${spo2Match[1]}%`);
-  const tempMatch = lower.match(/(?:temp|temperature|fever)\s*(?:is|of|:)?\s*(\d{2}\.?\d*\s*°?c?)/i);
-  if (tempMatch) vitals.push(`Temp ${tempMatch[1]}°C`);
-
-  // Extract medications administered
-  const medsGiven = [];
-  const medRegex = /(\w+(?:\s+\w+)?)\s+(given|administered|received)\s+(?:\w+\s+){0,4}?(\d+\s*(?:mg|mcg|g|ml|units|tablets?|puffs?))?/gi;
-  let medMatch;
-  while ((medMatch = medRegex.exec(t)) !== null) {
-    medsGiven.push(`${medMatch[1].trim()} ${medMatch[3] || ''}`.trim());
-  }
-  const doseRegex = /(\w+)\s+(\d+\s*(?:mg|mcg|g|ml|units?))\s+(\w+)\s+(?:at|given|administered|at|at around)?\s*(\d{3,4})?/gi;
-  while ((medMatch = doseRegex.exec(t)) !== null) {
-    medsGiven.push(`${medMatch[1]} ${medMatch[2]} ${medMatch[3]}${medMatch[4] ? ' at ' + medMatch[4] : ''}`);
-  }
-
-  // Detect clinical categories
-  const hasFall = /fall|fell|collapse|trip|slip|unsteady|stumble/i.test(t);
-  const hasNotify = /notif|inform|call|page|doctor|dr\.|consult|review/i.test(t);
-  const hasPain = /pain|ache|discomfort|headache|analgesia|prn/i.test(t);
-  const hasMeds = /medication|given|administer|tablet|dose|prescribed|pm|prn|IV|oral/i.test(t);
-  const hasWound = /wound|dressing|skin|ulcer|surgical|incision|pressure|sore|tear|bandage|suture/i.test(t);
-
-  const vitalsStr = vitals.length > 0 ? vitals.join(', ') : 'See chart';
-
-  // ================================================================
-  // A. HANDOVER REPORT — Short, informal, task-focused (no emojis)
-  // ================================================================
-  const h = [];
-
+  // Split into sentences
   const sentences = t.replace(/\.\s+/g, '•').split(/[!?\n]/).flatMap(s => s.split('•')).filter(s => s.trim()).map(s => s.trim());
 
-  sentences.forEach(s => {
-    const lowerS = s.toLowerCase();
-    const timeIn = s.match(/(\d{1,2}:\d{2}\s*(?:am|pm)?|\d{3,4}\s*(?:hrs?)?)/i);
-    const timePrefix = timeIn ? '[' + timeIn[1] + '] ' : '';
-    h.push(`${timePrefix}${s.charAt(0).toUpperCase() + s.slice(1)}`);
+  // ================================================================
+  // A. HANDOVER REPORT — Short, informal sentences
+  // ================================================================
+  const h = sentences.map(s => {
+    const timeIn = s.match(/(\d{1,2}:\d{2}\s*(?:am|pm)?)|\b(\d{3,4})\s*(?:hrs?)\b/i);
+    const timeStr = timeIn ? (timeIn[1] || timeIn[2]) : null;
+    const timePrefix = timeStr ? '[' + timeStr + '] ' : '';
+    return timePrefix + s.charAt(0).toUpperCase() + s.slice(1);
   });
 
-  // Add pending/task items if not already mentioned
-  if (!/pending|to do|follow up|due|scheduled/i.test(t)) {
-    if (hasFall) h.push(`Bed alarm ON. Assist with all transfers.`);
-    if (hasPain) h.push(`Continue to monitor pain. PRN analgesia available.`);
-    if (vitals.length > 0) h.push(`Continue vital signs monitoring.`);
-    if (hasNotify) h.push(`Medical review pending.`);
-  }
-
   // ================================================================
-  // B. PROGRESS NOTE — Chronological narrative format
+  // B. PROGRESS NOTE — Clinical narrative, one time per block
   // ================================================================
   const p = [];
 
-  // Entry time
-  const entryTime = times.length > 0
-    ? times[0]
-    : new Date().toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit' }) + ' hrs';
+  // Recording header — one timestamp for the whole entry
+  p.push(`[${recordingTime}]`);
 
-  // Chronological narrative
-  const progSentences = t.replace(/\.\s+/g, '•').split(/[!?\n]/).flatMap(s => s.split('•')).filter(s => s.trim()).map(s => s.trim());
-  const narrative = [];
-
-  progSentences.forEach(s => {
+  sentences.forEach(s => {
     const lowerS = s.toLowerCase();
-    const timeIn = s.match(/(\d{1,2}:\d{2}\s*(?:am|pm)?|\d{3,4}\s*(?:hrs?)?)/i);
-    const timePrefix = timeIn ? timeIn[1] + ' hrs: ' : entryTime + ': ';
 
     if (/pain|ache|discomfort|headache|abdomen|nausea|vomit|cramp/i.test(lowerS)) {
       let cleaned = s.replace(/^(Patient\s+)?(was\s+|is\s+|has\s+)?/i, '').trim();
       if (/^complained\s+of/i.test(cleaned)) {
-        narrative.push(`${timePrefix}Patient ${cleaned.toLowerCase()}.`);
+        p.push(`Patient ${cleaned.toLowerCase()}.`);
       } else {
-        narrative.push(`${timePrefix}Patient complained of ${cleaned.toLowerCase()}.`);
+        p.push(`Patient complained of ${cleaned.toLowerCase()}.`);
       }
     } else if (/bp|blood press|hr|heart rate|spo2|temp|vitals|obs/i.test(lowerS)) {
-      narrative.push(`${timePrefix}Vital signs assessed: ${s}.`);
+      p.push(`Vital signs assessed: ${s}.`);
     } else if (/(?:paracetamol|panadol|morphine|antibiotic|ceftriaxone|amoxicillin|ibuprofen|aspirin|insulin|heparin|furosemide|omeprazole|metformin|amlodipine|atorvastatin)\s|(?:given|administered|received)\s+(?:\w+\s+){0,3}(?:mg|mcg|g|ml|units|tablet|dose)/i.test(lowerS)) {
-      narrative.push(`${timePrefix}${s.charAt(0).toUpperCase() + s.slice(1)}. Patient tolerated well.`);
+      p.push(`${s.charAt(0).toUpperCase() + s.slice(1)}. Patient tolerated well.`);
     } else if (/fall|fell|collapse|trip|slip/i.test(lowerS)) {
-      narrative.push(`${timePrefix}Patient found ${s.replace(/patient\s+/i, '').toLowerCase().trim()}. Assessed for injury. No visible injury noted. Assisted back to bed. Bed alarm applied.`);
+      p.push(`Patient found ${s.replace(/patient\s+/i, '').toLowerCase().trim()}. Assessed for injury. No visible injury noted. Assisted back to bed. Bed alarm applied.`);
     } else if (/wound|dressing|surgical|incision|skin|ulcer|pressure|suture|bandage/i.test(lowerS)) {
-      narrative.push(`${timePrefix}Wound assessed: ${s}. Dressing noted to be clean, dry, and intact.`);
+      p.push(`Wound assessed: ${s}. Dressing noted to be clean, dry, and intact.`);
     } else if (/doctor|dr\.|notif|call|page|inform|consult|review/i.test(lowerS)) {
-      narrative.push(`${timePrefix}${s}. Medical team notified of findings.`);
+      p.push(`${s}. Medical team notified of findings.`);
     } else if (/family|wife|husband|daughter|son|relatives|next of kin/i.test(lowerS)) {
-      narrative.push(`${timePrefix}Family updated: ${s}.`);
+      p.push(`Family updated: ${s}.`);
     } else if (/o2|oxygen|breath|resp|nebuliser|ventilat|spo2/i.test(lowerS)) {
-      narrative.push(`${timePrefix}Respiratory assessment: ${s}.`);
+      p.push(`Respiratory assessment: ${s}.`);
     } else if (/mobil|walk|ambulat|transfer|exercise|deep breath|physio|move/i.test(lowerS)) {
-      narrative.push(`${timePrefix}Patient mobilised: ${s}. Encouraged deep breathing exercises and ambulation.`);
+      p.push(`Patient mobilised: ${s}. Encouraged deep breathing exercises and ambulation.`);
     } else if (/conscious|alert|confused|drowsy|gcs|neuro|avpu|responsive/i.test(lowerS)) {
-      narrative.push(`${timePrefix}Neurological assessment: ${s}.`);
+      p.push(`Neurological assessment: ${s}.`);
     } else if (/urine|catheter|output|renal|incontine|toilet|bathroom/i.test(lowerS)) {
-      narrative.push(`${timePrefix}Genitourinary assessment: ${s}.`);
+      p.push(`Genitourinary assessment: ${s}.`);
     } else if (/diet|feed|eat|drink|appetite|fluid.*intake|hydrat/i.test(lowerS)) {
-      narrative.push(`${timePrefix}Encouraged oral intake and hydration: ${s}.`);
+      p.push(`Encouraged oral intake and hydration: ${s}.`);
     } else if (/lab|blood|test|result|fbc|ue|troponin|swab|culture|xray|x-ray|scan|ecg/i.test(lowerS)) {
-      narrative.push(`${timePrefix}Investigations reviewed: ${s}.`);
+      p.push(`Investigations reviewed: ${s}.`);
     } else {
-      narrative.push(`${timePrefix}${s}.`);
+      const cleaned = s.charAt(0).toUpperCase() + s.slice(1);
+      const ended = /[.!?]$/.test(cleaned) ? cleaned : cleaned + '.';
+      p.push(ended);
     }
   });
-
-  // Deduplicate
-  const seen = new Set();
-  narrative.forEach(line => {
-    const key = line.toLowerCase().trim();
-    if (!seen.has(key)) { seen.add(key); p.push(line); }
-  });
-
-  // Closing assessment
-  const isPositive = /improving|better|stable|good|well|responding|clear|normal/i.test(t);
-  const isNegative = /worsen|deteriorat|concern|declin|critical|unstable|severe|abnormal|complication|failing/i.test(t);
-
-  p.push(``);
-  p.push(`Patient reviewed. ${isPositive ? 'Condition appears stable and improving.' : isNegative ? 'Signs of deterioration noted — close monitoring required.' : 'Condition currently stable.'} Will continue to monitor and reassess per clinical protocol.`);
-
-  // Plan
-  let planItems = [];
-  if (hasFall) planItems.push('Fall precautions in place. Assist with all transfers.');
-  if (hasPain) planItems.push('Monitor pain. PRN analgesia available as ordered.');
-  if (vitals.length > 0) planItems.push('Continue vital signs monitoring per protocol.');
-  if (hasMeds) planItems.push('Medications administered as prescribed.');
-  if (hasNotify) planItems.push('Notify medical team if any changes.');
-  planItems.push('Encourage mobility and deep breathing exercises.');
-  planItems.push('Reassess next shift.');
-
-  p.push(``);
-  p.push(`Plan:`);
-  planItems.forEach(item => p.push(`- ${item}`));
 
   return {
     handover_text: h.join('\n'),

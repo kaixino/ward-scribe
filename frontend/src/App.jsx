@@ -115,7 +115,7 @@ export default function App() {
     await fetchPatientReports(patient.id);
   }
 
-  async function handleTranscribe(transcript, appendMode) {
+  async function handleTranscribe(transcript) {
     if (!selectedPatient || !currentNurse) return;
     setLoading(true);
     try {
@@ -127,7 +127,6 @@ export default function App() {
           nurse_id: currentNurse.id,
           transcript,
           report_type: isDoctor ? 'doctor' : 'nurse',
-          append: appendMode && !isDoctor ? true : false,
         }),
       });
       const data = await res.json();

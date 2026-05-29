@@ -174,7 +174,7 @@ export default function RecordingPanel({
     if (!transcript.trim()) return;
     // Add timestamp to transcript before submitting
     const timestamped = timestampTranscript(transcript);
-    onTranscribe(timestamped, true); // true = append mode
+    onTranscribe(timestamped);
   }
 
   function handleKeyDown(e) {

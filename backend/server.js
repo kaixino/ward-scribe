@@ -1,3 +1,6 @@
+// Set Malaysia timezone (UTC+8)
+process.env.TZ = 'Asia/Kuala_Lumpur';
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');

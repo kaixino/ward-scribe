@@ -236,17 +236,17 @@ export default function ShiftReportsView({ currentNurse, onBack, onNavigateToPat
                       )) : <div className="sr-column-empty">No progress entries</div>}
                     </div>
 
-                    {/* Doctor's Notes — below progress entries */}
+                    {/* Doctor's Notes — below progress entries, highlighted blue */}
                     {group.doctorEntries && group.doctorEntries.length > 0 && (
                       <div className="sr-doctor-section">
                         <div className="sr-doctor-header">
                           <Stethoscope size={13} /> Doctor's Notes
                         </div>
                         {group.doctorEntries.map((entry, ei) => (
-                          <div key={ei} className="sr-entry-line">
-                            <span className="sr-entry-time">{entry.timeFormatted}</span>
+                          <div key={ei} className="sr-entry-line sr-doctor-line">
+                            <span className="sr-entry-time sr-doctor-time">{entry.timeFormatted}</span>
                             <pre
-                              className="sr-entry-text hover-reveal"
+                              className="sr-entry-text sr-doctor-text hover-reveal"
                               onMouseMove={(e) => handleTextHover(e, {
                                 nurseName: entry.doctorName,
                                 nurseRole: entry.doctorRole,
