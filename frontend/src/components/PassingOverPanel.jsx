@@ -60,41 +60,28 @@ export default function PassingOverPanel({ patients, currentNurse, onBack }) {
     if (!text.trim()) return 'No notes recorded.';
     const lines = [];
     const t = text.toLowerCase();
-    lines.push(`📋 SHIFT HANDOFF — ${patient?.name || 'Patient'} (${patient?.bed_number || ''})`);
-    lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    lines.push(`⏰ **Shift Events from Transcript:**`);
+    lines.push(`Shift handoff — ${patient?.name || 'Patient'} (${patient?.bed_number || ''})`);
 
-    // Extract key info from transcript
+    // Simple bullet-point summary of the shift events
     const sentences = text.split(/[.!?\n]+/).filter(s => s.trim());
-    sentences.forEach(s => {
-      const trimmed = s.trim();
-      if (!trimmed) return;
-      // Detect clinical categories
-      if (/fall|fell|collapse|trip/i.test(trimmed)) lines.push(`   ⚠️ ${trimmed}`);
-      else if (/pain|ache|discomfort/i.test(trimmed)) lines.push(`   💊 ${trimmed}`);
-      else if (/bp|hr|spo2|vital|temp|blood|oxygen/i.test(trimmed)) lines.push(`   📊 ${trimmed}`);
-      else if (/medication|given|administer|paracetamol|antibiotic|tablet|dose/i.test(trimmed)) lines.push(`   💊 ${trimmed}`);
-      else if (/wound|dressing|skin|ulcer|pressure/i.test(trimmed)) lines.push(`   🩹 ${trimmed}`);
-      else if (/family|wife|husband|son|daughter/i.test(trimmed)) lines.push(`   👨‍👩‍👧 ${trimmed}`);
-      else if (/doctor|dr\.|notif|call|page|review/i.test(trimmed)) lines.push(`   📞 ${trimmed}`);
-      else lines.push(`   📝 ${trimmed}`);
-    });
-
     if (sentences.length === 0) {
-      lines.push(`   📝 Routine observations completed, patient stable.`);
+      lines.push(`- Routine observations completed, patient stable.`);
+    } else {
+      sentences.forEach(s => {
+        const clean = s.trim().replace(/\.$/, '');
+        lines.push(`- ${clean.charAt(0).toUpperCase() + clean.slice(1)}.`);
+      });
     }
 
-    lines.push(`📌 **Pending for Next Shift:**`);
-    if (/fall|fell|collapse|unsteady/i.test(t)) lines.push(`   ⚠️ Monitor fall risk, bed alarm ON`);
-    if (/pain|ache|discomfort/i.test(t)) lines.push(`   💊 Continue pain management`);
-    if (/bp|hr|spo2|temp|vital|obs|oxygen/i.test(t)) lines.push(`   📊 Continue vital signs monitoring`);
-    if (/medication|given|administer|antibiotic|prescribed/i.test(t)) lines.push(`   💊 Continue medication schedule`);
-    if (/wound|dressing|skin|ulcer/i.test(t)) lines.push(`   🩹 Wound care as ordered`);
-    if (/family|wife|husband|son|daughter|relatives/i.test(t)) lines.push(`   👨‍👩‍👧 Keep family updated`);
-    if (/doctor|dr\.|notif|call|page|review/i.test(t)) lines.push(`   📞 Medical review pending`);
-    lines.push(`   🔄 Continue current nursing care plan`);
-    lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    lines.push(`🤖 AI-generated summary from shift handoff transcript`);
+    lines.push(`Pending for next shift:`);
+    if (/fall|fell|collapse|unsteady/i.test(t)) lines.push(`- Monitor fall risk, bed alarm on.`);
+    if (/pain|ache|discomfort/i.test(t)) lines.push(`- Continue pain management.`);
+    if (/bp|hr|spo2|temp|vital|obs|oxygen/i.test(t)) lines.push(`- Continue vital signs monitoring.`);
+    if (/medication|given|administer|antibiotic|prescribed/i.test(t)) lines.push(`- Continue medication schedule.`);
+    if (/wound|dressing|skin|ulcer/i.test(t)) lines.push(`- Wound care as ordered.`);
+    if (/family|wife|husband|son|daughter|relatives/i.test(t)) lines.push(`- Keep family updated.`);
+    if (/doctor|dr\.|notif|call|page|review/i.test(t)) lines.push(`- Medical review pending.`);
+    lines.push(`- Continue current nursing care plan.`);
 
     return lines.join('\n');
   }
@@ -283,7 +270,7 @@ export default function PassingOverPanel({ patients, currentNurse, onBack }) {
       <div className="po-header">
         <button className="btn-icon" onClick={onBack}><ChevronLeft size={22} /></button>
         <div>
-          <h2>🔄 Shift Handoff</h2>
+          <h2>Shift Handoff</h2>
           <p className="po-subtitle">Record information to pass to the next nurse</p>
         </div>
       </div>
@@ -330,9 +317,9 @@ export default function PassingOverPanel({ patients, currentNurse, onBack }) {
         <div className="po-event-hints">
           <strong>What happened during your shift?</strong>
           <div className="po-hint-chips">
-            <span>🩸 Vitals</span><span>💊 Medications</span><span>⚠️ Incidents</span>
-            <span>🩹 Wound Care</span><span>🫁 Respiratory</span><span>🧠 Neuro</span>
-            <span>🛏️ Mobility</span><span>📞 Dr Notified</span><span>👨‍👩‍👧 Family</span>
+            <span>Vitals</span><span>Medications</span><span>Incidents</span>
+            <span>Wound Care</span><span>Respiratory</span><span>Neuro</span>
+            <span>Mobility</span><span>Dr Notified</span><span>Family</span>
           </div>
         </div>
 
@@ -341,14 +328,14 @@ export default function PassingOverPanel({ patients, currentNurse, onBack }) {
             {isRecording ? <Square size={28} /> : <Mic size={28} />}
           </button>
           <span className="po-mic-label">
-            {isRecording ? '🟡 Recording... describe shift events clearly' : '🎤 Tap to record shift events'}
+            {isRecording ? 'Recording... describe shift events clearly' : 'Tap the microphone to record shift events'}
           </span>
         </div>
 
         {audioUrl && (
           <div className="po-playback">
             <audio src={audioUrl} controls className="po-audio-player" />
-            <span className="po-audio-check">✅ Recorded {Math.round(recordedBlob?.size / 1024)}KB</span>
+            <span className="po-audio-check">Recorded {Math.round(recordedBlob?.size / 1024)}KB</span>
           </div>
         )}
 
@@ -369,7 +356,7 @@ export default function PassingOverPanel({ patients, currentNurse, onBack }) {
         />
 
         <div className="po-summary-area">
-          <label>🤖 AI-Generated Summary from Your Notes</label>
+          <label>AI-Generated Summary from Your Notes</label>
           <pre className="po-summary-text">{summary || 'Type your shift notes above to generate the summary...'}</pre>
         </div>
 
@@ -394,7 +381,7 @@ export default function PassingOverPanel({ patients, currentNurse, onBack }) {
               {entry.audio_size > 0 && (
                 <button className={`po-play-btn ${playingId === entry.id ? 'playing' : ''}`}
                   onClick={() => playAudio(entry.id)}>
-                  {playingId === entry.id ? '🔴 Stop' : <><Play size={12} /> Play Audio</>}
+                  {playingId === entry.id ? 'Stop' : <><Play size={12} /> Play Audio</>}
                 </button>
               )}
             </div>

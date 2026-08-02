@@ -10,19 +10,18 @@ const { v4: uuidv4 } = require('uuid');
 // Simulated synthesis functions (same as in routes/reports.js)
 function synthesizeNurseNotes(transcript, patientProfile) {
   const t = transcript.trim();
-  const lower = t.toLowerCase();
 
-  const recordingTime = new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kuala_Lumpur' }) + ' hrs';
+  const recordingTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-  const sentences = t.replace(/\.\s+/g, '•').split(/[!?\n]/).flatMap(s => s.split('•')).filter(s => s.trim()).map(s => s.trim());
+  const sentences = t
+    .replace(/\.\s+/g, '•')
+    .split(/[!?\n]/)
+    .flatMap(s => s.split('•'))
+    .map(s => s.replace(/^\s*\[[^\]]*\]\s*/, '').trim())
+    .filter(s => s);
 
-  // Handover — short sentences
-  const h = sentences.map(s => {
-    const timeIn = s.match(/(\d{1,2}:\d{2}\s*(?:am|pm)?)|\b(\d{3,4})\s*(?:hrs?)\b/i);
-    const timeStr = timeIn ? (timeIn[1] || timeIn[2]) : null;
-    const timePrefix = timeStr ? '[' + timeStr + '] ' : '';
-    return timePrefix + s.charAt(0).toUpperCase() + s.slice(1);
-  });
+  // Handover — short, formal sentences (no duplicated time)
+  const h = sentences.map(s => s.charAt(0).toUpperCase() + s.slice(1));
 
   // Progress note — clinical narrative, one time per block
   const p = [];

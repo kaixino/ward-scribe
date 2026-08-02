@@ -163,11 +163,11 @@ export default function RecordingPanel({
     return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   }
 
-  /** Prepend timestamp to transcript lines */
+  /** Prepend timestamp to transcript lines (without duplicating existing ones) */
   function timestampTranscript(raw) {
     const time = getCurrentTime();
     const lines = raw.split('\n').filter(l => l.trim());
-    return lines.map(l => `[${time}] ${l.trim()}`).join('\n');
+    return lines.map(l => `[${time}] ${l.trim().replace(/^\[[^\]]*\]\s*/, '')}`).join('\n');
   }
 
   function handleSubmit() {

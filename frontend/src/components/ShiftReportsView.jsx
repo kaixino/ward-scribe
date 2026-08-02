@@ -77,6 +77,12 @@ export default function ShiftReportsView({ currentNurse, onBack, onNavigateToPat
     setTooltip(null);
   }
 
+  // The entry time is already shown in the time column, so strip any leading
+  // [HH:MM ...] marker embedded in the text to avoid displaying it twice.
+  function stripEmbeddedTime(text) {
+    return (text || '').replace(/^(\[[^\]]*\]\s*)+/, '').trim();
+  }
+
   // Tooltip element
   const tooltipEl = tooltip && (
     <div className="attribution-tooltip" style={{ left: tooltip.x, top: tooltip.y }}>
@@ -205,16 +211,20 @@ export default function ShiftReportsView({ currentNurse, onBack, onNavigateToPat
                       <Mic size={13} /> Handover Report
                     </div>
                     <div className="sr-column-entries">
-                      {group.handoverEntries.length > 0 ? group.handoverEntries.map((entry, ei) => (
-                        <div key={ei} className="sr-entry-line">
-                          <span className="sr-entry-time">{entry.timeFormatted}</span>
-                          <pre
-                            className="sr-entry-text hover-reveal"
-                            onMouseMove={(e) => handleTextHover(e, entry)}
-                            onMouseLeave={handleTextLeave}
-                          >{entry.text}</pre>
-                        </div>
-                      )) : <div className="sr-column-empty">No handover entries</div>}
+                      {group.handoverEntries.length > 0 ? group.handoverEntries.map((entry, ei) => {
+                        const text = stripEmbeddedTime(entry.text);
+                        if (!text) return null;
+                        return (
+                          <div key={ei} className="sr-entry-line">
+                            <span className="sr-entry-time">{entry.timeFormatted}</span>
+                            <pre
+                              className="sr-entry-text hover-reveal"
+                              onMouseMove={(e) => handleTextHover(e, entry)}
+                              onMouseLeave={handleTextLeave}
+                            >{text}</pre>
+                          </div>
+                        );
+                      }) : <div className="sr-column-empty">No handover entries</div>}
                     </div>
                   </div>
 
@@ -224,19 +234,49 @@ export default function ShiftReportsView({ currentNurse, onBack, onNavigateToPat
                       <ClipboardList size={13} /> Progress Note
                     </div>
                     <div className="sr-column-entries">
-                      {group.progressEntries.length > 0 ? group.progressEntries.map((entry, ei) => (
-                        <div key={ei} className="sr-entry-line">
-                          <span className="sr-entry-time">{entry.timeFormatted}</span>
-                          <pre
-                            className="sr-entry-text hover-reveal"
-                            onMouseMove={(e) => handleTextHover(e, entry)}
-                            onMouseLeave={handleTextLeave}
-                          >{entry.text}</pre>
-                        </div>
-                      )) : <div className="sr-column-empty">No progress entries</div>}
+                      {group.progressEntries.length > 0 ? group.progressEntries.map((entry, ei) => {
+                        const text = stripEmbeddedTime(entry.text);
+                        // Skip timestamp-only lines (e.g. the progress note's [time] header)
+                        if (!text) return null;
+                        return (
+                          <div key={ei} className="sr-entry-block">
+                            <div className="sr-entry-line">
+                              <span className="sr-entry-time">{entry.timeFormatted}</span>
+                              <pre
+                                className="sr-entry-text hover-reveal"
+                                onMouseMove={(e) => handleTextHover(e, entry)}
+                                onMouseLeave={handleTextLeave}
+                              >{text}</pre>
+                            </div>
+
+                            {/* Doctor's Notes — rendered directly below the progress note they belong to */}
+                            {entry.doctorNotes && entry.doctorNotes.length > 0 && (
+                              <div className="sr-doctor-section">
+                                <div className="sr-doctor-header">
+                                  <Stethoscope size={13} /> Doctor's Notes
+                                </div>
+                                {entry.doctorNotes.map((dn, dni) => (
+                                  <div key={dni} className="sr-entry-line sr-doctor-line">
+                                    <span className="sr-entry-time sr-doctor-time">{dn.timeFormatted}</span>
+                                    <pre
+                                      className="sr-entry-text sr-doctor-text hover-reveal"
+                                      onMouseMove={(e) => handleTextHover(e, {
+                                        nurseName: dn.doctorName,
+                                        nurseRole: dn.doctorRole,
+                                        timeFormatted: dn.timeFormatted,
+                                      })}
+                                      onMouseLeave={handleTextLeave}
+                                    >{stripEmbeddedTime(dn.text)}</pre>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }) : <div className="sr-column-empty">No progress entries</div>}
                     </div>
 
-                    {/* Doctor's Notes — below progress entries, highlighted blue */}
+                    {/* Orphan Doctor's Notes — no matching progress note, shown at the bottom */}
                     {group.doctorEntries && group.doctorEntries.length > 0 && (
                       <div className="sr-doctor-section">
                         <div className="sr-doctor-header">
@@ -253,7 +293,7 @@ export default function ShiftReportsView({ currentNurse, onBack, onNavigateToPat
                                 timeFormatted: entry.timeFormatted,
                               })}
                               onMouseLeave={handleTextLeave}
-                            >{entry.text}</pre>
+                            >{stripEmbeddedTime(entry.text)}</pre>
                           </div>
                         ))}
                       </div>

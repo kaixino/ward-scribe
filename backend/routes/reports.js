@@ -444,6 +444,29 @@ router.get('/patients/:id/shift-reports', (req, res) => {
     return (h >= 7 && h < 19) ? 'Day Shift' : 'Night Shift';
   }
 
+  // Group doctor notes by parent report so they can be rendered inline directly
+  // below the progress note they were appended to. Orphan notes (no matching
+  // parent) are kept for the bottom section.
+  const doctorNotesByParent = {};
+  const orphanDoctorNotes = [];
+  doctorNotes.forEach(n => {
+    const noteObj = {
+      id: n.id,
+      doctorName: n.created_by_name,
+      doctorRole: n.created_by_role,
+      text: n.progress_note_text,
+      parentReportId: n.parent_report_id,
+      timestamp: n.timestamp,
+      timeFormatted: new Date(n.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    };
+    if (n.parent_report_id && reports.some(r => r.id === n.parent_report_id)) {
+      if (!doctorNotesByParent[n.parent_report_id]) doctorNotesByParent[n.parent_report_id] = [];
+      doctorNotesByParent[n.parent_report_id].push(noteObj);
+    } else {
+      orphanDoctorNotes.push(noteObj);
+    }
+  });
+
   // Group by day+shift key
   const shiftGroups = {};
   reports.forEach(r => {
@@ -473,41 +496,27 @@ router.get('/patients/:id/shift-reports', (req, res) => {
       });
     });
     const progressLines = (r.progress_note_text || '').split('\n').filter(l => l.trim());
-    progressLines.forEach(line => {
+    const reportDoctorNotes = doctorNotesByParent[r.id] || [];
+    progressLines.forEach((line, idx) => {
+      // Doctor's notes render directly below the last line of their parent note
       shiftGroups[groupKey].progressEntries.push({
         text: line,
         nurseName: r.nurse_name,
         nurseRole: r.nurse_role,
         timestamp: r.timestamp,
         timeFormatted: new Date(r.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        doctorNotes: idx === progressLines.length - 1 ? reportDoctorNotes : [],
       });
     });
+    // If the parent report has no progress lines, keep its notes in the bottom section
+    if (progressLines.length === 0 && reportDoctorNotes.length > 0) {
+      shiftGroups[groupKey].doctorEntries.push(...reportDoctorNotes);
+    }
   });
 
-  // Group doctor notes by parent report and attach
-  const doctorNotesByParent = {};
-  doctorNotes.forEach(n => {
-    const parentId = n.parent_report_id || 'orphan';
-    if (!doctorNotesByParent[parentId]) doctorNotesByParent[parentId] = [];
-    doctorNotesByParent[parentId].push({
-      id: n.id,
-      doctorName: n.created_by_name,
-      doctorRole: n.created_by_role,
-      text: n.progress_note_text,
-      parentReportId: n.parent_report_id,
-      timestamp: n.timestamp,
-      timeFormatted: new Date(n.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-    });
-  });
-
-  // Attach doctor notes to their parent report's shift group
-  const orphanDoctorEntries = [];
-  Object.values(shiftGroups).forEach(group => {
-    // Find which report IDs are in this group — we need to map back
-  });
-
-  // Add doctor notes as separate doctorEntries in each shift group
-  doctorNotes.forEach(n => {
+  // Orphan doctor notes — no matching parent progress note — shown at the bottom
+  // of the progress column, grouped by their own day + shift
+  orphanDoctorNotes.forEach(n => {
     const d = new Date(n.timestamp);
     const dayKey = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const shift = getShiftLabel(n.timestamp);
@@ -522,14 +531,7 @@ router.get('/patients/:id/shift-reports', (req, res) => {
         doctorEntries: [],
       };
     }
-    if (!shiftGroups[groupKey].doctorEntries) shiftGroups[groupKey].doctorEntries = [];
-    shiftGroups[groupKey].doctorEntries.push({
-      text: n.progress_note_text,
-      doctorName: n.created_by_name,
-      doctorRole: n.created_by_role,
-      timestamp: n.timestamp,
-      timeFormatted: new Date(n.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-    });
+    shiftGroups[groupKey].doctorEntries.push(n);
   });
 
   const result = Object.entries(shiftGroups).map(([key, group]) => ({
@@ -548,17 +550,31 @@ router.get('/patients/:id/shift-reports', (req, res) => {
   });
 });
 
-/** Generate a brief summary from a passing-over transcript */
+/** Generate a simple bullet-point summary from a passing-over transcript */
 function generatePassingSummary(transcript) {
   if (!transcript.trim()) return 'No notes recorded.';
   const lines = [];
-  lines.push(`📋 Key handoff points: ${transcript.length > 120 ? transcript.substring(0, 120) + '...' : transcript}`);
-  if (/fall|fell|unsteady/i.test(transcript)) lines.push('⚠️ Fall risk noted');
-  if (/pain|ache/i.test(transcript)) lines.push('💊 Pain management needed');
-  if (/bp|hr|spo2|vital|obs/i.test(transcript)) lines.push('📊 Vitals to monitor');
-  if (/medication|given|administer/i.test(transcript)) lines.push('💊 Medications due');
-  if (/dr\.|doctor|notif|call/i.test(transcript)) lines.push('📞 Medical review pending');
-  lines.push(`🔄 ${transcript.split(/[.!?]/).length} clinical observations documented`);
+  const t = transcript;
+
+  lines.push('Shift handoff summary:');
+  const sentences = transcript.split(/[.!?\n]+/).filter(s => s.trim());
+  if (sentences.length === 0) {
+    lines.push('- Routine observations completed, patient stable.');
+  } else {
+    sentences.forEach(s => {
+      const clean = s.trim().replace(/\.$/, '');
+      lines.push(`- ${clean.charAt(0).toUpperCase() + clean.slice(1)}.`);
+    });
+  }
+
+  lines.push('Pending for next shift:');
+  if (/fall|fell|unsteady/i.test(t)) lines.push('- Monitor fall risk, bed alarm on.');
+  if (/pain|ache/i.test(t)) lines.push('- Continue pain management.');
+  if (/bp|hr|spo2|vital|obs/i.test(t)) lines.push('- Continue vital signs monitoring.');
+  if (/medication|given|administer/i.test(t)) lines.push('- Continue medication schedule.');
+  if (/dr\.|doctor|notif|call/i.test(t)) lines.push('- Medical review pending.');
+  lines.push('- Continue current nursing care plan.');
+
   return lines.join('\n');
 }
 
@@ -572,7 +588,7 @@ function synthesizeDoctorNote(transcript, doctorName) {
   const lower = t.toLowerCase();
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit' });
+  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
   // Extract vital signs
   const bp = (t.match(/(?:bp|blood pressure)\s*(?:is|of|:)?\s*(\d{2,3}\s*\/\s*\d{2,3})/i) || [])[1];
@@ -680,25 +696,26 @@ function synthesizeDoctorNote(transcript, doctorName) {
  */
 function synthesizeNurseNotes(transcript, patientProfile) {
   const t = transcript.trim();
-  const lower = t.toLowerCase();
 
-  // Extract any time mentioned in the transcript
+  // Extract the first time mentioned in the transcript, or fall back to the
+  // current time. Always rendered in 12-hour AM/PM so night-shift times show PM.
   const firstTime = (t.match(/(\d{1,2}:\d{2}\s*(?:am|pm)?)/i) || [])[1];
   const recordingTime = firstTime ||
-    new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kuala_Lumpur' }) + ' hrs';
+    new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-  // Split into sentences
-  const sentences = t.replace(/\.\s+/g, '•').split(/[!?\n]/).flatMap(s => s.split('•')).filter(s => s.trim()).map(s => s.trim());
+  // Split into sentences and strip any leading [HH:MM ...] timestamp marker so
+  // the time is not duplicated inside the report (the view shows it separately).
+  const sentences = t
+    .replace(/\.\s+/g, '•')
+    .split(/[!?\n]/)
+    .flatMap(s => s.split('•'))
+    .map(s => s.replace(/^\s*\[[^\]]*\]\s*/, '').trim())
+    .filter(s => s);
 
   // ================================================================
-  // A. HANDOVER REPORT — Short, informal sentences
+  // A. HANDOVER REPORT — Short, formal sentences (no duplicated time)
   // ================================================================
-  const h = sentences.map(s => {
-    const timeIn = s.match(/(\d{1,2}:\d{2}\s*(?:am|pm)?)|\b(\d{3,4})\s*(?:hrs?)\b/i);
-    const timeStr = timeIn ? (timeIn[1] || timeIn[2]) : null;
-    const timePrefix = timeStr ? '[' + timeStr + '] ' : '';
-    return timePrefix + s.charAt(0).toUpperCase() + s.slice(1);
-  });
+  const h = sentences.map(s => s.charAt(0).toUpperCase() + s.slice(1));
 
   // ================================================================
   // B. PROGRESS NOTE — Clinical narrative, one time per block
